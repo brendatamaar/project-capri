@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+coverage/
+art/private/
+reference/
+assets/capri/
+tools/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.log
+*.tsbuildinfo
+local/
