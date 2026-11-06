@@ -1,0 +1,12 @@
+{
+  "core": [
+    "src/core/**"
+  ],
+  "shell": [
+    "src/main/**"
+  ],
+  "profile": "service",
+  "designDir": "docs/design",
+  "mode": "deny",
+  "stopCheck": "changed"
+}
