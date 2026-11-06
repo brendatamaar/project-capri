@@ -1,0 +1,6 @@
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; user-select: none; }
+[hidden] { display: none !important; }
+#capri { position: absolute; top: 0; left: 0; will-change: transform; }
+#sprite { display: block; }
+#fx { position: fixed; inset: 0; pointer-events: none; }
+#compact { position: fixed; left: 10px; bottom: 10px; width: 42px; height: 56px; }

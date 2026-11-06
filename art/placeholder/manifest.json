@@ -1,0 +1,9 @@
+{
+  "name": "Pip",
+  "version": 1,
+  "rig": "mochi-v1",
+  "sprite": "sprite.png",
+  "faces": {},
+  "cutins": {},
+  "intro": {}
+}

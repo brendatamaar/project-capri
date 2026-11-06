@@ -1,0 +1,8 @@
+:root { color-scheme: dark; font: 15px "Segoe UI", sans-serif; background: #0c151b; color: #e3eee9; }
+body { margin: 0; }
+main { display: flex; align-items: center; gap: 12px; padding: 24px; }
+canvas { flex-shrink: 0; max-width: 48%; }
+h1 { margin: 12px 0; font-size: 32px; color: #a7e7d7; }
+p { line-height: 1.6; }
+.eyebrow { color: #daa84b; font-size: 12px; letter-spacing: .12em; }
+.note { color: #a6bcb8; }
