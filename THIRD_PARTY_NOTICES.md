@@ -31,10 +31,10 @@ M4 integrates the authored interpretation clips with pure sampling/mapping/mixin
 
 https://github.com/pingdotgg/t3code at 6577c6b6185167c0e502fa01f9e8e8f2dee6ff25.
 Copyright (c) 2026 T3 Tools Inc. MIT license: licenses/T3Code-MIT.txt.
-No T3Code source or contracts copied in M0. This notice reserves the documented attribution for later milestones.
+M7 copies unchanged orchestrationV2.ts and its transitive contract imports into spikes/t3-probe/contracts/. The exact source pin and SHA-256 manifest are recorded beside the probe. The monitoring adapter additionally imports unchanged pinned contracts from vendor/t3-contracts with independent hashes. No reference artwork was imported.
 
 ## Dependencies
 
-Runtime: Electron (MIT, with Chromium/Node notices supplied by Electron), Zod (MIT).
+Runtime: Electron (MIT, with Chromium/Node notices supplied by Electron), Zod (MIT), Effect (MIT).
 Build/test: TypeScript (Apache-2.0), esbuild (MIT), Vitest (MIT), fast-check (MIT), electron-builder (MIT), @electron/asar (MIT, archive verification), @types/node (MIT).
 Dependency versions are locked in package-lock.json; dependency license files stay with their packages.

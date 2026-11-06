@@ -1,0 +1,7 @@
+{
+  "name": "capri-t3-probe",
+  "private": true,
+  "type": "module",
+  "scripts": { "probe": "tsx probe.ts", "test": "node --test policy.test.mjs" },
+  "dependencies": { "effect": "4.1.2", "tsx": "4.21.0" }
+}
