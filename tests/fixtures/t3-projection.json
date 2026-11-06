@@ -1,0 +1,52 @@
+{
+  "thread": {
+    "createdBy": "user",
+    "creationSource": "web",
+    "id": "fb4b3268-b24a-4b47-b95f-59d40523f4ab",
+    "projectId": "6bf20f28-63f9-4dbf-b16b-bfdff7f5bd19",
+    "title": "Capri fixture claude",
+    "providerInstanceId": "claude",
+    "modelSelection": {
+      "instanceId": "claude",
+      "model": "fixture-model"
+    },
+    "runtimeMode": "approval-required",
+    "interactionMode": "default",
+    "branch": null,
+    "worktreePath": null,
+    "pullRequests": [],
+    "activeProviderThreadId": null,
+    "lineage": {
+      "parentThreadId": null,
+      "relationshipToParent": null,
+      "rootThreadId": "fb4b3268-b24a-4b47-b95f-59d40523f4ab"
+    },
+    "forkedFrom": null,
+    "createdAt": "2026-11-06T17:12:23.432Z",
+    "updatedAt": "2026-11-06T17:12:23.432Z",
+    "archivedAt": null,
+    "settledOverride": null,
+    "settledAt": null,
+    "snoozedUntil": null,
+    "snoozedAt": null,
+    "lastVisitedAt": null,
+    "deletedAt": null
+  },
+  "runs": [],
+  "attempts": [],
+  "nodes": [],
+  "subagents": [],
+  "providerSessions": [],
+  "providerThreads": [],
+  "providerTurns": [],
+  "runtimeRequests": [],
+  "messages": [],
+  "plans": [],
+  "turnItems": [],
+  "checkpointScopes": [],
+  "checkpoints": [],
+  "contextHandoffs": [],
+  "contextTransfers": [],
+  "visibleTurnItems": [],
+  "updatedAt": "2026-11-06T17:12:23.432Z"
+}

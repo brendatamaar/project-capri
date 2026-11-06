@@ -11,9 +11,11 @@
       "node"
     ],
     "lib": [
-      "ES2022",
+      "ES2023",
       "DOM"
-    ]
+    ],
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*.ts",

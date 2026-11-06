@@ -1,8 +1,8 @@
 {
   "name": "capri-companion",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "private": true,
-  "description": "Non-commercial Capri Companion, Phase 0 M1 art packs",
+  "description": "Non-commercial Capri desktop and T3Code monitoring companion",
   "license": "PolyForm-Noncommercial-1.0.0",
   "main": "dist/main/bootstrap.cjs",
   "engines": {
@@ -15,11 +15,13 @@
     "test": "vitest run && node --test tests/hooks.test.js",
     "test:core": "vitest run --project core --passWithNoTests",
     "test:contracts": "vitest run --project contracts --passWithNoTests",
-    "test:e2e": "npm run build && node scripts/smoke.mjs && node scripts/overlay-smoke.mjs",
+    "test:e2e": "npm run build && node scripts/smoke.mjs && node scripts/overlay-smoke.mjs && node scripts/agent-smoke.mjs",
     "test:overlay": "npm run build && node scripts/overlay-smoke.mjs",
     "test:packaged": "node scripts/overlay-smoke.mjs --packaged",
     "dist": "npm run check && electron-builder --win && node scripts/check-package.mjs",
-    "dist:unpacked": "npm run check && electron-builder --win --dir && node scripts/check-package.mjs"
+    "dist:unpacked": "npm run check && electron-builder --win --dir && node scripts/check-package.mjs",
+    "test:agent": "npm run build && node scripts/agent-smoke.mjs",
+    "demo:agents": "npm run build && electron . --agent-demo"
   },
   "devDependencies": {
     "@electron/asar": "3.4.1",
@@ -32,6 +34,7 @@
     "vitest": "5.1.0"
   },
   "dependencies": {
+    "effect": "4.1.2",
     "zod": "4.6.7"
   },
   "build": {
