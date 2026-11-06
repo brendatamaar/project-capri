@@ -2,9 +2,9 @@
 
 This plan builds the overlay companion first, then connects her to coding agents. `PRD.md` owns product scope, `DESIGN.md` owns behavior, and this file owns order and progress.
 
-Current milestone: **M6 release candidate built; manual acceptance remains unverified. Phase 1 is unstarted and stopped at the user's request.**
+Current milestone: **M13 acceptance pending. The approved Phase 1 monitoring fallback implementation is validated; Windows installer completion, real Windows/provider acceptance and the full-week trial remain outstanding.**
 
-Repository checkpoint (2026-11-06): the user authorized grouping the M0–M6 implementation into several commits and pushing to `origin/main`. Earlier milestone notes describe their pre-commit verification state. This checkpoint does not accept the manual Windows/full-week gate or restart Phase 1.
+Repository audit (2026-11-06): work began from clean main at `71f7688`, containing M0–M6. The current request supersedes the earlier Phase 1 stop. The implemented monitoring fallback and evidence are recorded below; full acceptance is still pending.
 
 ## How to work
 
@@ -211,141 +211,120 @@ M6 release-candidate verification (2026-11-06):
 - Manual/native acceptance and the full work week are NOT checked off. docs/WINDOWS_ACCEPTANCE.md contains the concrete checklist and bug-record format. Real monitor/DPI layouts, native click-through, icon providers, fullscreen apps, installer/startup behavior, and daily performance still require user verification. Existing six moderate builder-chain advisories remain recorded.
 - Phase 1 remains unstarted. Do not call M6 accepted or claim a full week of use without user evidence. The user explicitly deferred the human-use gate on 2026-11-06, then requested reverting M7 and stopping Phase 1 work. No M7 implementation, probe, or vendored contracts are retained. The manual checklist and full week remain unverified. No commit has been made.
 
-## Phase 1: Agent companion
+## Phase 1: Agent companion — approved monitoring fallback
 
-This phase adds T3Code status and approvals to the finished overlay.
+The user explicitly approved monitoring plus Open in T3Code on 2026-11-07.
+Claude, Codex, Antigravity and Muse remain ThreadOnly until their live approval
+gates pass. No provider approval support is inferred from monitoring tests.
+The original full-approval tasks are deferred below, not checked off as implemented.
 
-### M7: T3Code gate
+### M7: T3Code gate — monitoring passed
 
-Goal: prove that Capri can observe threads and answer approvals through T3Code RPC before building the product around it.
+- [x] Isolated probe in spikes/t3-probe with pinned source hashes and Effect 4.1.2.
+- [x] Separate loopback server at port 3774 and separate temporary data directory.
+- [x] Read-scope pairing exchange, RPC ticket and authenticated WebSocket.
+- [x] Snapshot, project.updated delta, synchronized, and fresh-ticket afterSequence.
+- [x] Record ~30-day bearer lifetime and tested 0.1.7/protocol 2 version.
+- [x] Record user-approved ThreadOnly scope in DESIGN.md.
+- [x] Create idle Supervised synthetic threads for all four provider IDs; no turns.
+- [ ] Deferred: real pending requests, live Approve/Deny per provider, real usage limits.
 
-- [ ] Create a throwaway probe in `spikes/t3-probe/`.
-- [ ] Copy the pinned T3Code contracts into the probe.
-- [ ] Set up a test T3Code project and set its threads to Supervised.
-- [ ] Create a pairing credential with `orchestration:read` and `orchestration:operate`.
-- [ ] Exchange it at `/oauth/token`.
-- [ ] Issue a WebSocket ticket and connect to `/ws`.
-- [ ] Log `subscribeShell` snapshots, deltas, and `synchronized`.
-- [ ] Reconnect with `afterSequence`.
-- [ ] Load one pending request with `getThreadProjection`.
-- [ ] Approve and deny one request with `runtime-request.respond` on Claude, Codex, Antigravity, and Muse.
-- [ ] Confirm provider limit data for Claude, Codex, and Antigravity.
-- [ ] Record bearer token lifetime and the desktop server address.
-- [ ] Update `DESIGN.md` with the results.
+Gate outcome: monitoring transport works safely. User authorized proceeding with
+fallback instead of waiting for provider approval tests. The active port 3773
+profile was not used for authenticated tests. The isolated server remains running.
 
-Exit criteria:
+### M8: Pure core — monitoring implementation complete
 
-- If approvals work, continue to M8.
-- If approvals fail on a provider, mark that provider `ThreadOnly`.
-- If RPC can't be used safely, stop and revisit the approval design with the user.
+- [x] Branded IDs and closed tagged state/input/command types under src/core/agent.
+- [x] Connection generations, sequence guards and bounded injected reconnect jitter.
+- [x] Thread edges, ThreadOnly pending focus, bounded detail retries and audit outcomes.
+- [x] Derived presence, quiet/hidden state, run-scoped thinking and reaction timers.
+- [x] Export step/run and transition/property tests for the implemented fallback.
+- [ ] Deferred: Ready/Sending/Unconfirmed and decision-send invariants/mutation tests.
 
-### M8: Pure core
+Snapshots never replay celebrations. Metadata-only enrichment snapshots are skipped
+at the adapter boundary. Authoritative live snapshots retain Live; reconnect still
+waits for synchronized. No SendDecision command exists in the fallback model.
 
-Goal: implement phase 1 decisions without Electron or T3Code.
+### M9: Shell and boundaries — implementation complete
 
-- [ ] Add branded IDs and closed state, input, and command unions.
-- [ ] Implement connection transitions.
-- [ ] Implement thread transitions and reaction edge detection.
-- [ ] Implement approval transitions and guards.
-- [ ] Implement derived presence and quiet mode.
-- [ ] Export `step` and `run`.
-- [ ] Add one test for every transition row.
-- [ ] Add property tests for every `DESIGN.md` invariant.
+- [x] Pairing/UI boundary validation and explicit BoardView, no renderer credentials.
+- [x] Serialized encrypted atomic SecureStore; unavailable encryption uses memory.
+- [x] Deduplicated request-ID-only AuditLog, timer scheduler and command interpreter.
+- [x] Memory/recording fakes and contracts for storage, timers and interpreter races.
+- [x] Separate typed panel bridge and retained restricted overlay bridge.
 
-Verification:
+### M10: T3Code adapter — monitoring implementation complete
 
-- `npm run test:core` passes.
-- `neverApprovesWithoutUser` and `disconnectedCannotApprove` fail when their guards are removed, then pass after restoring them.
+- [x] Production adapter in src/main/t3, pinned vendor contracts with VERSION/hashes.
+- [x] Version/protocol gate before pairing, read-only token exchange and RPC tickets.
+- [x] Application-controlled jittered reconnect capped at five minutes; no RPC retry.
+- [x] Recorded synthetic shell and idle projection fixtures, replay and parser tests.
+- [x] Pending-request projections only; shell latestVisibleMessage supplies ticker.
+- [x] Provider config/limits parsing; unknown kinds skipped, unavailable data explicit.
+- [x] Imported legacy hooks remain dormant and are never installed automatically.
+- [x] Opt-in production adapter test passed against isolated server, including resume.
+- [ ] Deferred: provider decision RPC and real-provider approval/usage evidence.
 
-### M9: Shell and boundaries
+Replay tests caught and fixed the JSON timestamp codec and repository-enrichment
+snapshot semantics. No vendor source was hand-edited. Fixture paths are sanitized,
+and fixture recording creates idle threads only, never messages or agent turns.
 
-Goal: connect the pure core to stores, timers, and the UI.
+### M11: Board and ThreadOnly queue — implementation complete
 
-- [ ] Add boundary parsers.
-- [ ] Add `SecureStore`, `AuditLog`, `Scheduler`, `PanelPort`, and `CharacterPort`.
-- [ ] Write contract suites and memory fakes first.
-- [ ] Add the command interpreter.
-- [ ] Replace broad preload exposure with typed overlay and panel bridges.
-- [ ] Keep tokens in the main process only.
+- [x] Pairing/settings UI, connection state and disconnect/token removal.
+- [x] Four-provider board, permission labels, latest summary/error and usage rows.
+- [x] Exact pending request card when available; explicit detail-unavailable fallback.
+- [x] Open known thread using the checked environment ID and trusted local origin.
+- [x] Oldest blocking focus; deferred focus after fullscreen; hide preserves requests.
+- [x] Approve/Deny disabled and no decision IPC; request text rendered as text only.
+- [x] Local audit outcomes and warnings for storage failures.
+- [x] Electron smoke: four rows, exact text/XSS boundary, IPC rejection, known-thread
+  opening, hidden/fullscreen, quiet and reconnect.
+- [ ] Deferred: approval/denial from Capri; all providers are currently ThreadOnly.
 
-Verification:
+### M12: Character reactions — implementation complete
 
-- Contract tests pass for all fakes and local adapters.
-- A renderer can't read a token through IPC.
-- `npm run check` passes.
+- [x] Presence, latest-action ticker and 15-second quiet/thinking indicator.
+- [x] Working, failed, done and needs-you edge reactions.
+- [x] Come near user/card and point without interrupting signature animations.
+- [x] Quiet uses existing muted synthesis; no speech provider or network voice added.
+- [x] Reduced-motion reactions use small look gestures instead of travel/large acts.
+- [x] Offline demo based on recorded shells, with explicitly synthetic status events.
+- [x] Electron assertion: queued failure waits for signature and reduced mode uses look.
 
-### M10: T3Code adapter
+Reactions expire after five seconds rather than replaying stale events after a long
+signature/hidden period. The board remains the source of truth for pending requests.
+The demo uses memory-only connection/audit adapters and never accesses saved tokens.
 
-Goal: replace hooks as the main agent source.
+### M13: Agent companion release — implementation validated; acceptance pending
 
-- [ ] Promote the M7 connection into `src/main/t3/`.
-- [ ] Copy pinned contracts to `vendor/t3-contracts/` with `VERSION.md`.
-- [ ] Implement `T3Auth` and `T3Rpc`.
-- [ ] Add server version and protocol checks.
-- [ ] Add jittered reconnect capped at 5 minutes.
-- [ ] Add recorded replay fixtures for shell and thread streams.
-- [ ] Subscribe to active thread details only.
-- [ ] Parse provider limits from server config updates.
-- [ ] Keep Claude hooks as a disabled fallback.
-
-Verification:
-
-- Replay contract tests pass.
-- Optional live contract tests pass against a separate T3Code data directory.
-- Capri recovers after a server restart without replaying reactions.
-
-### M11: Board and approval queue
-
-Goal: complete the main user workflow.
-
-- [ ] Add the pairing screen and connection states.
-- [ ] Add the thread board.
-- [ ] Add provider permission labels.
-- [ ] Add the approval card from `DESIGN.md`.
-- [ ] Support Approve, Deny, and Open in T3Code.
-- [ ] Focus the oldest blocking approval.
-- [ ] Lock approval controls when disconnected or hidden.
-- [ ] Add local audit logging.
-- [ ] Add limit rows and Muse token-use fallback.
-
-Verification:
-
-- A Supervised thread can be approved and denied from Capri on supported providers.
-- `ThreadOnly` requests open the correct T3Code thread.
-- Approvals survive panel hide and reconnect.
-
-### M12: Character reactions
-
-Goal: make agent state understandable through Capri's behavior.
-
-- [ ] Map presence to character actions.
-- [ ] Connect ticker, thinking timer, failure, done, and needs-you reactions.
-- [ ] Make her come to the user and point at the approval card.
-- [ ] Add quiet mode.
-- [ ] Add reduced-motion replacements.
-- [ ] Keep sounds synthesized or user-provided.
-- [ ] Update the fake session demo to use recorded T3Code streams.
-
-Verification:
-
-- Every row in the DESIGN.md reaction table works in the demo.
-- Reconnecting doesn't replay old celebrations.
-- Quiet mode removes sound and speech.
-
-### M13: Agent companion release
-
-Goal: use Capri daily with your coding agents.
-
-- [ ] Add settings for the T3Code connection.
-- [ ] Update the installer and package checks.
-- [ ] Run the PRD phase 1 acceptance checklist.
+- [x] T3Code connection settings and documented pairing/disconnect workflow.
+- [x] Alpha.1 package version and panel/preload/CSP/secret-path archive checks.
+- [x] Document automated evidence, manual acceptance, and remaining bugs/limits.
+- [x] Finish final build/tests and record Windows packaging result (installer blocked below).
+- [ ] Run real Windows/real-provider acceptance in docs/PHASE1_ACCEPTANCE.md.
 - [ ] Use Capri with T3Code for one full work week.
-- [ ] Record bugs and missing behavior.
 
-Exit criteria:
+Release validation (2026-11-07):
 
-- All phase 1 acceptance criteria pass.
-- You still want Capri running after a week of daily use.
+- npm run check passes; 114 Vitest tests plus 5 unchanged hook tests pass.
+  Dedicated core (35) and contract (59) suites pass. git diff --check is clean.
+- Full Linux Electron e2e passed: four art scenarios, two overlay/live-face cases,
+  and the board/IPC smoke. The later expanded agent smoke also passes signature
+  priority and reduced-motion checks. Temporary libraries/Xvfb and explicit
+  test-only software-GL/no-sandbox flags were needed on this container; production
+  sandbox/context-isolation settings are unchanged.
+- Final alpha.1 Windows unpacked build and archive checks passed with executable
+  resource editing disabled for cross-build. Installer generation failed because
+  Wine is absent (spawn wine ENOENT). The incomplete installer was removed. Build
+  the installer on Windows with npm run dist; no successful installer is claimed.
+- Production adapter was exercised against the isolated server using read scope.
+  Synthetic recorded projections and provider rows are not live-provider acceptance.
+
+Windows/manual and full-week use are not accepted from source tests. Full outside
+approvals are deferred by the approved scope, not counted as passing provider tests.
+No Phase 2 work has started. The user authorized splitting this implementation into focused Conventional Commits and pushing them to origin/main on 2026-11-07. The commit history records that checkpoint; manual acceptance remains pending.
 
 ## Phase 2: Assistant
 

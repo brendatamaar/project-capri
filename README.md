@@ -1,6 +1,6 @@
 # Capri Companion
 
-Personal, non-commercial Electron companion. Phase 0 implementation; Windows acceptance pending.
+Personal, non-commercial Electron companion. Phase 1 monitoring fallback implementation; Windows and daily-use acceptance pending.
 
 Read [PRD](docs/PRD.md), [DESIGN](docs/DESIGN.md), [AGENTS](AGENTS.md), and [PLAN](docs/PLAN.md).
 The root AGENTS.md mirrors docs/AGENTS.md so coding tools discover the project rules.
@@ -18,7 +18,31 @@ npm run test:e2e
 npm run dist
 ```
 
-`npm run dev` starts an offline transparent desktop companion with Pip, an original teal-and-brass robot. Right-click its body or tray icon for settings, teleport/sleep, the showcase, behavior toggles, monitors, and quit. Ctrl+Alt+C toggles the compact form; Ctrl+Alt+Q toggles quiet. Pause companion activity from the tray to cancel the current renderer/action context. The original main.js stays dormant: no agent service, hooks, chat, screen capture, or network setup runs.
+`npm run dev` starts the transparent desktop companion with Pip, an original
+teal-and-brass robot. Right-click the body or tray for **Agent board**, settings,
+teleport/sleep, showcase, monitors, and quit. Ctrl+Alt+C toggles compact form;
+Ctrl+Alt+Q toggles quiet. Pause companion activity from the tray to cancel the
+renderer/action context. The imported legacy agent/chat/PC-action entry stays dormant.
+
+The agent board connects to local T3Code **0.1.7 / protocol 2**. In T3Code, create
+a pairing code with `t3 pair --scope orchestration:read` (add `--base-dir` for a
+separate test instance). Enter its local HTTP origin and pairing code in the board.
+Capri requests read scope only, encrypts the resulting token using Electron secure
+storage, and reconnects after disconnects. Without secure encryption it keeps the
+token in memory and requires pairing again after restart. Disconnect removes the
+saved token. There are no network calls before pairing or loading a saved connection.
+
+All providers currently use **ThreadOnly**: the board shows status and pending
+requests, then opens the correct T3Code thread for your response. Approve/Deny are
+disabled until provider support is explicitly verified. Pending cards show exact
+request text when available, otherwise state that details must be reviewed in
+T3Code. Provider limits show Unavailable when the server has no valid data.
+
+`npm run demo:agents` runs an offline demonstration using recorded synthetic T3Code
+streams. It ignores saved credentials, starts no agent turns, sends no commands,
+and labels the board as a demo. `npm run test:agent` exercises the real Electron
+board/preload with synthetic events and an isolated Capri profile. See
+[Phase 1 acceptance](docs/PHASE1_ACCEPTANCE.md) for remaining human checks.
 
 `test:core` tests pure policies, transitions, motion, following, and reactions. `test:contracts` tests art and settings boundaries/storage. `test:e2e` tests actual Electron decoding/rendering and the off-screen overlay with isolated original fixtures. `npm run dist` builds an unsigned Windows installer and verifies its unpacked archive; `dist:unpacked` skips the installer. Output stays in ignored release/. No install or Windows startup registration is performed by the build/test commands.
 

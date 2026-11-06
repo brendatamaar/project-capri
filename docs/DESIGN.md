@@ -521,6 +521,31 @@ The approval card offers only Approve and Deny in phase 1, mapped to `accept` an
 | Thread details | `orchestration.getThreadProjection`, `orchestration.subscribeThread` |
 | Approval command | `orchestration.dispatchCommand`, type `runtime-request.respond` |
 
+### M7 probe status (2026-11-06)
+
+`spikes/t3-probe/` is a separate, monitoring-only executable using unchanged pinned
+contracts and Effect 4.1.2. It permits loopback HTTP origins only, rejects redirects,
+checks 0.1.7/protocol 2 before exchanging a credential supplied by private file, and
+requires an explicit isolated-server assertion for authenticated calls. Tokens and
+RPC tickets remain in process memory. Logs omit names, text, requests and secrets.
+It requests only orchestration:read, uses an RPC-specific ticket, subscribes through
+synchronized and opens a fresh connection with afterSequence. Requests and streams
+have timeouts. Errors suppress payloads; consumed pairing credentials are not retried.
+
+Public discovery on local port 3773 reports the expected version/protocol. Subsequent
+user-authorized tests used only a separate server at 127.0.0.1:3774 with base directory
+/tmp/capri-t3-test. Pairing with orchestration:read, token exchange, RPC ticket,
+snapshot/synchronized, project.updated delta, and fresh-socket afterSequence resume
+passed. Observed bearer lifetime is about 30 days. A separate read/operate fixture
+writer created synthetic projects; no agent turns or approvals were sent. Initial
+subscriptions omit afterSequence entirely; reconnects preserve zero as a valid cursor.
+The probe's --expect-delta mode waits for a sequenced delta on its first pass.
+
+Request detail, human decision and provider-limit probes remain required. M7 has
+not passed; there is no production network path and no provider is declared
+approval-capable. The isolated server remains running for continued M7 testing;
+its credentials and logs stay outside the repository.
+
 ## Visual and motion design
 
 ### Art packs
@@ -672,3 +697,66 @@ Contract suites: `T3Auth`, `T3Rpc`, `SecureStore`, `AuditLog`, `Scheduler`, and 
 - What address does your T3Code desktop server use, and does it stay on port 3773?
 - How long does the issued bearer token last on your installed version?
 - Should T3Code remain open for fallback, or should Capri launch it when needed?
+
+## Approved Phase 1 monitoring fallback
+
+The user authorized the monitoring fallback after M7 transport verification. All
+providers remain ThreadOnly until an explicit live provider gate passes. Production
+requests orchestration:read only; no dispatchCommand RPC or decision IPC exists.
+The board displays pending summaries and, when available, exact request details,
+and opens the correct thread for decisions in T3Code. Unknown approval send
+outcomes therefore cannot occur in this release. This narrows the planned approval
+state machine; it does not claim successful live approval tests.
+
+### Monitoring fallback implementation boundaries (2026-11-07)
+
+State lives in src/core/agent: closed tagged input/command/connection unions,
+branded thread/run/request IDs, monotonically increasing connection generations and
+sequence guards. All requests are ThreadOnly. Snapshot reconciliation audits new
+and closed requests without replaying one-shot reactions. A replacement snapshot
+received while Live stays Live: the verified server can emit snapshots during live
+updates without another synchronized marker. Initial connection still requires
+synchronized. Shell latestVisibleMessage supplies the ticker; new run/message
+activity resets the injected 15-second thinking timer. No transcript subscription
+is needed for this monitoring scope. Pending requests load exact projections with
+three bounded retries; missing/unsupported details explicitly fall back to T3Code.
+
+The interpreter owns side effects and suppresses stale pairing results. SecureStore
+serializes encrypted atomic writes; basic_text Linux storage is rejected as
+unavailable. Audit stores opaque request IDs and detected/closed/opened outcomes,
+never approval text. Failures display warnings. Connection retries use a new
+generation and injected jitter, capped at five minutes. RPC library retries are
+disabled. Unknown stream kinds are skipped; malformed known items reconnect.
+
+The panel gets only an explicit BoardView and allow-listed Pair, Disconnect, Quiet
+and OpenThread IPC. Main validates sender/main frame and constructs the thread
+URL from the checked environment ID and known thread ID. No renderer token or
+decision API exists. Pairing checks version/protocol before consuming the code;
+all network endpoints are loopback HTTP origins and reject redirects.
+
+### Release-candidate panel and reaction boundary
+
+The board is an independent sandboxed, strict-CSP window above the character layer.
+It renders every outside string with textContent, labels all requests ThreadOnly,
+and offers only validated known-thread opening. Pending focus is deferred while
+fullscreen/paused and restored once on resume; user hiding never clears requests.
+Card geometry is converted to overlay coordinates before a point reaction. Caption
+text is bounded; exact request text remains untruncated in the scrollable card.
+
+Agent reactions queue for at most five seconds, wait while any signature act, drag,
+busy/hidden/stowed/pause state is active, and use small look gestures under reduced
+motion. Sounds remain in the existing synthesis path and quiet mutes that path.
+Thinking starts after 15 seconds without a changed shell summary or active run.
+The separate offline demo replays sanitized recorded shells and adds synthetic
+working/waiting/done/failed events with memory-only credentials and audit.
+
+JSON stream values are decoded using Schema.toCodecJson for the pinned contracts;
+DateTime fields otherwise reject wire strings. Marked repository-enrichment snapshots
+are ignored because their empty thread arrays are not authoritative thread resets.
+Recorded four-provider fixtures cover both behaviors.
+
+Presence mode changes are also deferred until the character is eligible. Working,
+Thinking and NeedsYou use the existing work mode; disconnected status uses sleep.
+Unpaired startup leaves the standalone character alone, and explicit user sleep
+is preserved while agents merely work. Leaving the agent connection restores only
+the mode previously applied by the agent layer.
