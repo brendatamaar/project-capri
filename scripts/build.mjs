@@ -1,0 +1,18 @@
+import { build } from 'esbuild';
+import { cp, mkdir, rm } from 'node:fs/promises';
+import path from 'node:path';
+const output = path.resolve('dist');
+if (output !== path.join(process.cwd(), 'dist')) throw new Error('Unexpected build output path');
+await rm(output, { recursive: true, force: true });
+await build({ entryPoints: ['src/main/bootstrap.ts'], outfile: 'dist/main/bootstrap.cjs', bundle: true, platform: 'node', target: 'node22', external: ['electron'] });
+await mkdir('dist/renderer/art-preview', { recursive: true });
+await cp('src/renderer/art-preview/index.html', 'dist/renderer/art-preview/index.html');
+await cp('src/renderer/art-preview/style.css', 'dist/renderer/art-preview/style.css');
+await build({ entryPoints: ['src/renderer/art-preview/preview.ts'], outfile: 'dist/renderer/art-preview/preview.js', bundle: true, platform: 'browser', target: 'chrome130' });
+await build({ entryPoints: ['src/preload/overlay.ts'], outfile: 'dist/preload/overlay.cjs', bundle: true, platform: 'node', external: ['electron'] });
+await mkdir('dist/renderer/overlay', { recursive: true });
+await cp('src/renderer/overlay/index.html', 'dist/renderer/overlay/index.html');
+await cp('src/renderer/overlay/paused.html', 'dist/renderer/overlay/paused.html');
+await cp('src/renderer/overlay/style.css', 'dist/renderer/overlay/style.css');
+await build({ entryPoints: ['src/renderer/overlay/companion.ts'], outfile: 'dist/renderer/overlay/companion.js', bundle: true, platform: 'browser', target: 'chrome130' });
+await cp('src/main/windows/read-only.ps1', 'dist/main/read-only.ps1');

@@ -1,0 +1,66 @@
+{
+  "name": "capri-companion",
+  "version": "0.1.0-alpha.0",
+  "private": true,
+  "description": "Non-commercial Capri Companion, Phase 0 M1 art packs",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "main": "dist/main/bootstrap.cjs",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "npm run build && electron .",
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit && node scripts/check-repository.mjs && npm run build",
+    "test": "vitest run && node --test tests/hooks.test.js",
+    "test:core": "vitest run --project core --passWithNoTests",
+    "test:contracts": "vitest run --project contracts --passWithNoTests",
+    "test:e2e": "npm run build && node scripts/smoke.mjs && node scripts/overlay-smoke.mjs",
+    "test:overlay": "npm run build && node scripts/overlay-smoke.mjs",
+    "test:packaged": "node scripts/overlay-smoke.mjs --packaged",
+    "dist": "npm run check && electron-builder --win && node scripts/check-package.mjs",
+    "dist:unpacked": "npm run check && electron-builder --win --dir && node scripts/check-package.mjs"
+  },
+  "devDependencies": {
+    "@electron/asar": "3.4.1",
+    "@types/node": "^22.0.0",
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "build": {
+    "appId": "personal.capri.companion",
+    "productName": "Capri Companion",
+    "directories": {
+      "output": "release"
+    },
+    "asarUnpack": [
+      "dist/main/read-only.ps1"
+    ],
+    "files": [
+      "dist/**",
+      "art/placeholder/**",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "licenses/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "art/placeholder/pip.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": false,
+      "artifactName": "Capri-Companion-Setup-${version}.${ext}"
+    }
+  }
+}
