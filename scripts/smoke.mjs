@@ -10,7 +10,7 @@ const electron = require('electron');
 const root = await mkdtemp(path.join(tmpdir(), 'capri-art-smoke-'));
 async function run(expected, optional = '0-0-0') {
   await new Promise((resolve, reject) => {
-    const child = spawn(electron, ['.', '--smoke', `--smoke-art-root=${root}`], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(electron, [...(process.env.CAPRI_SMOKE_NO_SANDBOX==='1'?['--no-sandbox']:[]),...(process.env.CAPRI_SMOKE_SOFTWARE_GL==='1'?['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']:[]),'.', '--smoke', `--smoke-art-root=${root}`], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     child.stdout.on('data', data => { output += data; process.stdout.write(data); });
     child.stderr.on('data', data => process.stderr.write(data));

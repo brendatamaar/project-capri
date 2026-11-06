@@ -4,6 +4,7 @@ import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { loadArtPack, serveArt } from './art';
 import { createCompanion } from './windows/overlay';
+import { createAgentPanel } from './windows/agent-panel';
 import { readSettings } from './stores/companion-settings';
 
 const smoke = process.argv.includes('--smoke');
@@ -40,7 +41,10 @@ app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   if ((!smoke && !process.argv.includes('--art-preview')) || process.argv.includes('--smoke-overlay')) {
-    const companion = await createCompanion(smoke,pack.descriptor);
+    let openBoard:undefined|(()=>void);
+    const companion = await createCompanion(smoke,pack.descriptor,smoke?undefined:()=>openBoard?.());
+    if(!smoke){const demo=process.argv.includes('--agent-demo')?await (await import('./t3/demo')).demoConnection():undefined;const board=await createAgentPanel(companion,demo);openBoard=board.show;if(demo)board.show();}
+    if(smoke&&process.argv.includes('--smoke-agent')){const {agentSmoke}=await import('./agent/smoke');await agentSmoke(companion);app.quit();return;}
     if (smoke) {
       const { window } = companion;
       window.webContents.on('console-message', details => console.log('OVERLAY_RENDERER:', details.message));

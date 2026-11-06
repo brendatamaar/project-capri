@@ -16,3 +16,9 @@ await cp('src/renderer/overlay/paused.html', 'dist/renderer/overlay/paused.html'
 await cp('src/renderer/overlay/style.css', 'dist/renderer/overlay/style.css');
 await build({ entryPoints: ['src/renderer/overlay/companion.ts'], outfile: 'dist/renderer/overlay/companion.js', bundle: true, platform: 'browser', target: 'chrome130' });
 await cp('src/main/windows/read-only.ps1', 'dist/main/read-only.ps1');
+
+await build({ entryPoints: ['src/preload/panel.ts'], outfile: 'dist/preload/panel.cjs', bundle: true, platform: 'node', external: ['electron'] });
+await mkdir('dist/renderer/panel', { recursive: true });
+await cp('src/renderer/panel/index.html', 'dist/renderer/panel/index.html');
+await cp('src/renderer/panel/style.css', 'dist/renderer/panel/style.css');
+await build({ entryPoints: ['src/renderer/panel/panel.ts'], outfile: 'dist/renderer/panel/panel.js', bundle: true, platform: 'browser', target: 'chrome130' });

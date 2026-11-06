@@ -8,7 +8,7 @@ const packaged=process.argv.includes('--packaged');
 const executable=packaged?path.resolve('release/win-unpacked/Capri Companion.exe'):require('electron');
 const root=await mkdtemp(path.join(tmpdir(),'capri-overlay-smoke-'));
 async function run(face=false) { await new Promise((resolve,reject)=>{
-  const child=spawn(executable,[...(packaged?[]:['.']),'--smoke','--smoke-overlay',`--smoke-art-root=${root}`],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const child=spawn(executable,[...(process.env.CAPRI_SMOKE_NO_SANDBOX==='1'?['--no-sandbox']:[]),...(process.env.CAPRI_SMOKE_SOFTWARE_GL==='1'?['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']:[]),...(packaged?[]:['.']),'--smoke','--smoke-overlay',`--smoke-art-root=${root}`],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
   let output=''; child.stdout.on('data',data=>{output+=data;process.stdout.write(data)});child.stderr.on('data',data=>process.stderr.write(data));
   const timer=setTimeout(()=>{child.kill();reject(new Error('Overlay smoke timeout'))},60000);
   child.on('error',error=>{clearTimeout(timer);reject(error)});

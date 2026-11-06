@@ -78,6 +78,7 @@ async function boot() {
   const applyHidden = (hidden: boolean) => {
     fullscreen = hidden; capri.suspended=hidden||preferences.paused;capri.setHidden(capri.suspended || capri.stowed || capri.dormant);
     if(hidden)motion.pause();
+    document.querySelector<HTMLElement>('#agent-caption')!.hidden=hidden||preferences.paused||!document.querySelector<HTMLElement>('#agent-caption')!.textContent;
     if (hidden) { compact.hidden = true; fx.clear(); document.querySelector<HTMLElement>('#fx')!.hidden = true; }
     else { document.querySelector<HTMLElement>('#fx')!.hidden = false; compact.hidden = !(capri.stowed || capri.dormant); }
   };
@@ -93,10 +94,38 @@ async function boot() {
     if(preferences.peek){await capri.peek('right');await capri.unpeek();}
     await capri.goHome();
   };
+  let pendingAgent:{kind:'Done'|'Failed'|'NeedsYou'|'Working';until:number}|null=null;
+  let agentPresence='Idle',agentActive=false,pendingPresence=false;
+  let agentMode:string|null=null;
+  let agentCard:{x:number;y:number;w:number;h:number}|undefined;
+  const agentCaption=document.querySelector<HTMLElement>('#agent-caption')!;
+  const processAgentReaction=()=>{
+    if(capri.busy||capri.act||capri.dragging||capri.hidden||capri.stowed||preferences.paused||fullscreen)return;
+    if(pendingPresence){
+      pendingPresence=false;
+      if(agentActive){const next=['Working','Thinking','NeedsYou'].includes(agentPresence)?'work':agentPresence==='Asleep'?'sleep':'idle';
+        // Preserve a user-chosen sleep mode while agents are merely working.
+        if(capri.mode!=='sleep'||agentMode==='sleep'||agentPresence==='Asleep'){if(capri.mode!==next)capri.setMode(next);agentMode=next;}
+      }else if(agentMode){if(capri.mode===agentMode)capri.setMode('idle');agentMode=null;}
+    }
+    if(!pendingAgent||performance.now()>pendingAgent.until){pendingAgent=null;return;}
+    const kind=pendingAgent.kind;pendingAgent=null;
+    const reduced=reducedMotion.matches;
+    if(kind==='NeedsYou'&&!reduced&&agentCard)void capri.pointAt(agentCard,{label:'Respond in T3Code'});
+    else if(kind==='NeedsYou'&&!reduced&&capri.mouse)void capri.teleport({x:Math.max(80,Math.min(innerWidth-80,capri.mouse.x+100)),y:Math.max(160,Math.min(innerHeight-50,capri.mouse.y))}).then(()=>capri.perform('look'));
+    else void capri.perform(reduced?'look':kind==='Done'?'victory':kind==='Failed'?'flinch':kind==='NeedsYou'?'look':'curious');
+  };
+  const agentTimer=setInterval(processAgentReaction,500);
+  window.addEventListener('beforeunload',()=>clearInterval(agentTimer));
   const receive = (event: OverlayEvent) => {
     switch (event.tag) {
       case 'settings': applySettings(event.settings); return;
       case 'hidden': applyHidden(event.hidden); return;
+      case 'agent':
+        if(agentPresence!==event.presence||agentActive!==event.active)pendingPresence=true;agentPresence=event.presence;agentActive=event.active;
+        agentCard=event.card;if(event.presence!=='NeedsYou'){if(pendingAgent?.kind==='NeedsYou')pendingAgent=null;if(capri.pointing&&!capri.busy&&!capri.act)capri.stopPointing();}
+        agentCaption.textContent=event.presence==='Thinking'?`${event.caption} · Thinking (15s+)`:event.caption;agentCaption.hidden=!event.caption||fullscreen||preferences.paused;return;
+      case 'agentReaction':pendingAgent={kind:event.kind,until:performance.now()+5000};return;
       case 'desktop': desktop=event.desktop;capri.setWindows(event.desktop); return;
       case 'resize': fx.resize(event.width, event.height); capri.setView(event.width, event.height,event.height-event.floorGap);void host.screens().then(value=>{screens=value;}); return;
       case 'screen': void goToScreen(event.id);return;
@@ -148,7 +177,7 @@ async function boot() {
   if (smoke) {
     capri.wander = false; capri.nextTwitch = Infinity;
     capri.drawFrame();
-    window.__companionTest = { capri, hit, host, receive };
+    window.__companionTest = { capri, hit, host, receive, processAgentReaction };
   } else if (!desiredStowed&&!preferences.paused) void capri.intro(capri.spot('post'), { label: 'hi', caption: pack.name });
   document.body.dataset.ready = 'true';
 }

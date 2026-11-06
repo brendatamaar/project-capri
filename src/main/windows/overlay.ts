@@ -8,7 +8,8 @@ import { readSettings, writeSettings } from '../stores/companion-settings';
 import { watchWindows } from './watch';
 import type { ArtDescriptor } from '../../shared/art';
 
-export async function createCompanion(smoke: boolean,art:ArtDescriptor) {
+export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard?:()=>void) {
+  const listeners=new Set<()=>void>();
   let state: State = initialCompanion(await readSettings(app.getPath('userData')));
   const selected = () => screen.getAllDisplays().find(display=>state.tag==='Active'&&display.id===state.settings.displayId)??screen.getPrimaryDisplay();
   const display = selected();
@@ -32,6 +33,7 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor) {
     const settings = state.settings;
     const template: MenuItemConstructorOptions[] = [
       { label: 'Capri Companion', enabled: false },
+      ...(openBoard?[{label:'Agent board',click:()=>openBoard()}]:[]),
       {label:`Art: ${art.name} (${art.source})`,enabled:false},
       ...(watcherFailed ? [{ label: 'Window tracking unavailable; restart to retry', enabled: false }] : []),
       ...(storeFailed ? [{ label: 'Settings could not be saved', enabled: false }] : []),
@@ -74,9 +76,9 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor) {
     }
     const exhaustive: never = command; return exhaustive;
   };
-  function dispatch(input: Input) { const result = step(state, input); state = result.state; result.commands.forEach(interpret); }
+  function dispatch(input: Input) { const result = step(state, input); state = result.state; result.commands.forEach(interpret);for(const fn of listeners)fn(); }
   function rebuild() { const context = menu(); if (context) tray?.setContextMenu(context); }
-  const own = (event: IpcMainInvokeEvent | IpcMainEvent) => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame;
+  const own = (event: IpcMainInvokeEvent | IpcMainEvent) => !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame;
   const invoke = (channel: string, fn: (value: unknown) => unknown) => ipcMain.handle(channel, (event, value: unknown) => {
     if (!own(event)) throw new Error('Untrusted sender'); return fn(value);
   });
@@ -135,5 +137,5 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor) {
   window.once('ready-to-show', () => { resize();if (!smoke && state.tag === 'Active' && !state.fullscreen&&!state.settings.paused) window.showInactive(); });
   if(state.tag==='Active'&&state.settings.paused&&!smoke)await window.loadFile(path.join(__dirname,'../renderer/overlay/paused.html'));
   else await window.loadFile(path.join(__dirname, '../renderer/overlay/index.html'), { query: smoke ? { smoke: 'true' } : {} });
-  return { window, dispatch, receive, state: () => state, saved: () => saveTail };
+  return { window, dispatch, receive, state: () => state, saved: () => saveTail,agent:send,subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};} };
 }

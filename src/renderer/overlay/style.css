@@ -4,3 +4,5 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 #sprite { display: block; }
 #fx { position: fixed; inset: 0; pointer-events: none; }
 #compact { position: fixed; left: 10px; bottom: 10px; width: 42px; height: 56px; }
+
+#agent-caption{position:fixed;right:18px;bottom:20px;max-width:340px;padding:8px 12px;background:#121117e8;border-left:3px solid #f2154c;border-radius:2px;color:#eee;font:13px 'Segoe UI',sans-serif;pointer-events:none;overflow-wrap:anywhere}#agent-caption[hidden]{display:none}
