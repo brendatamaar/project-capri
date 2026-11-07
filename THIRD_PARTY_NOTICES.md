@@ -5,7 +5,7 @@ This is a non-commercial project. No reference artwork or Git history is include
 ## mochiiwuff/capri-desktop
 
 https://github.com/mochiiwuff/capri-desktop at cb33e87dfaee79cec8b4b0f737ca89e07b87ba4b (0.5.1).
-Code from src/, hooks/, scripts/, tests/ was imported unchanged in M0. M1 adapts renderer app.js, panel.js, and index.html for art packs. M3–M5 adapt capri.js for frame scheduling, springs, clip hooks, and behavior toggles. The new read-only Windows helper adapts upstream frame enumeration, excluding native input and window mutation. Exposure sheets (acting.js), shader, FX, and line files remain unchanged. The PolyForm Noncommercial 1.0.0 terms and earlier MIT notice are reproduced in LICENSE.
+Code from src/, hooks/, scripts/, tests/ was imported unchanged in M0. M1 adapts renderer app.js, panel.js, and index.html for art packs. M3–M5 adapt capri.js for frame scheduling, springs, clip hooks, and behavior toggles. The new read-only Windows helper adapts upstream frame enumeration, excluding native input and window mutation. M18 adds a cancellation guard to capri.js pointing and reuses the upstream pointing mechanics. The fixed assistant-controls.ps1 helper adapts only system.js Core Audio declarations; the original system.js remains dormant. Exposure sheets (acting.js), shader, FX, and line files remain unchanged. The PolyForm Noncommercial 1.0.0 terms and earlier MIT notice are reproduced in LICENSE.
 
 Required Notice: Copyright (c) 2026 mochiiwuff (https://github.com/mochiiwuff/capri-desktop)
 

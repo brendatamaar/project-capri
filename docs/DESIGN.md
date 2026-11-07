@@ -827,3 +827,40 @@ text can approve itself. Execute has no retry. Uncertain/cancelled effects are
 reported honestly; Stop cannot undo an already committed filesystem write or a
 T3 command already accepted remotely. There is no shell/program/purchase/messaging,
 password, screen-capture or input-synthesis action in the closed action union.
+
+M17 action boundaries: all action variants ask first, revalidate on execution and
+never retry. Search uses a native-picker folder, filenames only, bounded to 5000
+entries/four levels/20 results, skipping hidden folders, dependencies and symlinks.
+Opaque result handles are session-only and invalidated by another search/folder
+choice. OpenFile only reveals a checked result in Explorer; it does not execute it.
+Native Windows helpers accept only fixed JSON operations over stdin. Launch accepts
+Calculator/Notepad only; graceful close uses a listed PID/start-time pair and a
+protected-process list, never force-close. Music uses GSMTC sessions/Core Audio,
+not synthesized input. No screen capture, arbitrary executable or shell action is
+registered. Core Audio declarations are adapted from the already credited upstream
+system.js; the original file and license notices are unchanged.
+
+Notes use generated names under userData/assistant/notes. MEMORY.md appends only an
+approved exact string, rejects obvious credentials/payment/contact details, links,
+invalid existing text and overflow, and writes atomically. It never rewrites SOUL
+or USER. Context is refreshed before each model turn so approved memories become
+available without restarting; no watcher is installed. SQLite stores bounded local
+transcripts (5000 exchanges), reminders and decision-only audit IDs/booleans. It is
+local plaintext personal data, never application logs; UI discloses retention and
+provides transcript deletion. Transcript search uses bound literal substring
+queries; results are untrusted text. Reminders are persistent local notifications,
+with pure injected-time due detection, durable deletion before notification and no
+model/PC actions. Notification deletion failure retains the reminder for restart;
+a crash after deletion but before notification may lose that notification.
+
+T3 operations use a separate, session-only read/operate pairing; monitoring stays
+read-only. This scope is high privilege. Pairing/version/protocol and environment
+identity are checked before operations, and target project/provider/current run
+must match the Live board. Launch pins Supervised/default interaction/project root
+and the exact confirmed initial prompt. Steering is restricted to an active
+Supervised run and a fresh projection with no pending runtime requests. RPC retry
+is disabled; unknown outcomes instruct the user to inspect T3Code. Full-access,
+external messaging and approval-response RPCs are never exposed. Sending a confirmed
+prompt to the user's coding thread is the Phase 2 start/steering feature, not a
+messaging tool for contacting other people. Actual provider support remains subject
+to manual acceptance; automated tests never create agent turns.
