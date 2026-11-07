@@ -1,10 +1,14 @@
+import {inputControl} from '../fun/input';import {jobTarget,type JobTarget} from '../../shared/fun';import {z} from 'zod';
 import {randomUUID} from 'node:crypto';
 import type {Action} from '../../core/assistant/model';import type {assistantData} from './data';import {sensitiveMemory} from './data';
 import {fileSearch} from './files';import {nativeApps,nativeControl} from './native';import type {OperationCredential} from '../t3/operations';import {sendOperation} from '../t3/operations';
 export type Targets={live:boolean;server:string|null;projects:{id:string;title:string}[];threads:{id:string;title:string;provider:string;projectId:string;runId:string|null;phase:string;mode:string}[]};
-export function actionExecutor(deps:{data:Awaited<ReturnType<typeof assistantData>>;files:ReturnType<typeof fileSearch>;targets:()=>Targets;auth:()=>OperationCredential|null;point:(runId:number,x:number,y:number,label:string)=>void;native?:typeof nativeControl;t3?:typeof sendOperation;platform?:string;remindersChanged:()=>void}){
+export function actionExecutor(deps:{data:Awaited<ReturnType<typeof assistantData>>;files:ReturnType<typeof fileSearch>;targets:()=>Targets;auth:()=>OperationCredential|null;point:(runId:number,x:number,y:number,label:string)=>void;native?:typeof nativeControl;t3?:typeof sendOperation;platform?:string;input?:typeof inputControl;jobStopReady?:()=>boolean;remindersChanged:()=>void}){
+ const inputTargets=new Map<string,JobTarget>();
  const apps=new Map<string,{pid:number;name:string;stamp:string}>();
  const policy=(action:Action):string|null=>{
+  if(['ListInputTargets','InputJob'].includes(action.tag)&&((deps.platform??process.platform)!=='win32'||!deps.jobStopReady?.()))return 'Windows input jobs require a registered Control+Alt+Escape stop key.';
+  if(action.tag==='InputJob'&&!inputTargets.has(action.id))return 'Target expired. List input targets again.';
   if(action.tag==='CancelReminder'&&!deps.data.reminders().some(r=>r.id===action.id))return 'Reminder no longer exists.';
   if(action.tag==='Remember'&&sensitiveMemory(action.text))return 'Private credentials, payment details and contact details cannot be saved as memory.';
   if(action.tag==='OpenFile'&&!deps.files.describe(action.id))return 'Search result is unavailable. Search again.';
@@ -19,10 +23,10 @@ export function actionExecutor(deps:{data:Awaited<ReturnType<typeof assistantDat
   }return null;
  };
  const describe=(action:Action)=>{
-  const extra=action.tag==='CancelReminder'?`Cancel reminder: ${deps.data.reminders().find(r=>r.id===action.id)?.text??'unavailable'}`:action.tag==='OpenFile'?`Reveal in Explorer: ${deps.files.describe(action.id)??'unavailable'}`:action.tag==='CloseApp'?`Graceful close: ${apps.get(action.id)?.name??'unavailable'}, PID ${apps.get(action.id)?.pid??'unavailable'}`:action.tag==='Remember'?'Append the exact text below to local MEMORY.md.':action.tag==='StartThread'?`Start Supervised in project ${deps.targets().projects.find(p=>p.id===action.projectId)?.title??action.projectId}, provider ${action.provider}, model ${action.model}, project root workspace.`:action.tag==='SteerThread'?`Steer ${deps.targets().threads.find(t=>t.id===action.threadId)?.title??action.threadId}, provider ${action.provider}, project ${action.projectId}, active run ${action.runId}.`:action.tag==='SearchFiles'?`Search filenames under ${deps.files.root()??'no selected folder'}.`:'Run this exact action once.';
+  const extra=action.tag==='InputJob'?`Input job in ${inputTargets.get(action.id)?.name??'unavailable'}, PID ${inputTargets.get(action.id)?.pid??'unavailable'}, client rectangle ${JSON.stringify(inputTargets.get(action.id))}. Coordinates are normalized to that rectangle. Target is focused and revalidated before each step. Control+Alt+Escape stops; no retry.`:action.tag==='CancelReminder'?`Cancel reminder: ${deps.data.reminders().find(r=>r.id===action.id)?.text??'unavailable'}`:action.tag==='OpenFile'?`Reveal in Explorer: ${deps.files.describe(action.id)??'unavailable'}`:action.tag==='CloseApp'?`Graceful close: ${apps.get(action.id)?.name??'unavailable'}, PID ${apps.get(action.id)?.pid??'unavailable'}`:action.tag==='Remember'?'Append the exact text below to local MEMORY.md.':action.tag==='StartThread'?`Start Supervised in project ${deps.targets().projects.find(p=>p.id===action.projectId)?.title??action.projectId}, provider ${action.provider}, model ${action.model}, project root workspace.`:action.tag==='SteerThread'?`Steer ${deps.targets().threads.find(t=>t.id===action.threadId)?.title??action.threadId}, provider ${action.provider}, project ${action.projectId}, active run ${action.runId}.`:action.tag==='SearchFiles'?`Search filenames under ${deps.files.root()??'no selected folder'}.`:'Run this exact action once.';
   return extra+'\n'+JSON.stringify(action,null,2);
  };
- return {policy,describe,async execute(action:Action,runId:number,signal:AbortSignal):Promise<string>{
+ return {jobTargets:()=>[...inputTargets].map(([id,t])=>({id,name:t.name,pid:t.pid})),policy,describe,async execute(action:Action,runId:number,signal:AbortSignal):Promise<string>{
   signal.throwIfAborted();const blocked=policy(action);if(blocked)return 'Action blocked: '+blocked;
   switch(action.tag){
    case 'Note':{const file=await deps.data.note(randomUUID(),action.title,action.text,signal);return `Note saved: ${file}`;}
@@ -32,6 +36,8 @@ export function actionExecutor(deps:{data:Awaited<ReturnType<typeof assistantDat
    case 'SearchFiles':return JSON.stringify(await deps.files.search(action.query,signal),null,2);
    case 'OpenFile':await deps.files.open(action.id,signal);return 'File revealed in Explorer. No file was executed.';
    case 'SearchTranscript':return JSON.stringify(deps.data.search(action.query),null,2);
+   case 'ListInputTargets':{inputTargets.clear();const rows=z.array(jobTarget).max(32).parse(await (deps.input??inputControl)({op:'list'},signal));signal.throwIfAborted();return JSON.stringify(rows.map(t=>{const id=randomUUID();inputTargets.set(id,t);return {id,name:t.name,pid:t.pid};}));}
+   case 'InputJob':{const target=inputTargets.get(action.id)!;inputTargets.delete(action.id);await (deps.input??inputControl)({op:'job',target,steps:action.steps},signal);return 'Input job completed. Inspect the target; nothing was retried.';}
    case 'ListApps':{apps.clear();const rows=nativeApps.parse(await (deps.native??nativeControl)({op:'list'},signal));return JSON.stringify(rows.map(row=>{const id=randomUUID();apps.set(id,row);return {id,name:row.name};}),null,2);}
    case 'CloseApp':{const app=apps.get(action.id)!;await (deps.native??nativeControl)({op:'close',pid:app.pid,stamp:app.stamp},signal);apps.delete(action.id);return 'Graceful close requested. The app may ask you to save or remain open.';}
    case 'LaunchApp':await (deps.native??nativeControl)({op:'launch',app:action.app},signal);return `Launch requested: ${action.app}.`;

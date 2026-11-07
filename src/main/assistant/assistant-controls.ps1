@@ -70,6 +70,11 @@ public static class CapriAudio {
    $manager = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
    $session = $manager.GetCurrentSession()
    if (-not $session) { throw 'No active media session' }
+   if ($request.operation -eq 'status') {
+    $props = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+    @{title=[string]$props.Title;artist=[string]$props.Artist;playing=($session.GetPlaybackInfo().PlaybackStatus.ToString() -eq 'Playing')} | ConvertTo-Json -Compress
+    break
+   }
    $operation = switch ($request.operation) {
     'playPause' { $session.TryTogglePlayPauseAsync() }
     'next' { $session.TrySkipNextAsync() }

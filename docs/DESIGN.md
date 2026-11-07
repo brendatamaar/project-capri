@@ -957,4 +957,112 @@ Transcript copying fills the draft only; Send and action confirmations remain se
 Production capture, microphone hardware, real Kokoro/Parakeet/vision compatibility,
 and Windows audio/DPI behavior require manual checks in PHASE3_ACCEPTANCE.md.
 Synthetic Electron smoke uses the original placeholder as a capture fixture, not
-live desktop contents. Phase 4 remains unstarted.
+live desktop contents. At the Phase 3 checkpoint, Phase 4 remained unstarted.
+
+## Phase 4: fun extras and approved input jobs
+
+Phase 4 is authorized independently of earlier manual acceptance. New optional
+preferences are bond, jealousy, checkins, cursorRide, miniPlayer, dance, clones and
+chaos; all default false and use the existing strict atomic companion-settings
+boundary. The existing wander preference still controls window wandering. An
+assistant Fun extras card and tray submenu expose these switches. Turn off all fun
+extras persists false for every new switch. No Later/VPS/game feature is enabled.
+
+### M23: pure bond and mood model
+
+`src/core/fun/step.ts` defines tagged Fun State, Input and Command unions. Settings
+and Ui inputs configure opt-ins and authoritative eligibility. Click/Pet inputs
+carry injected UTC day, time and run ID, award at most 30 XP per day, and clamp
+lifetime XP to 1000. Five thresholds [0,100,300,550,850] reuse the retained
+mochiiwuff bond.js convention. There is no absence penalty, negative XP, obligation,
+persona permission change, or demand for an apology. Reset is explicit and persists
+zero progress. Happy/playful moods expire with run-scoped timers; stale expiries do
+nothing. Disabling extras, quiet, blocking or hiding clears captions/chaos/timers.
+Bond progress never changes tool permissions, system prompts or approval decisions.
+
+Rival, Insult and Tick inputs may emit a short fixed caption and Schedule only
+while eligible, opted in and not quiet, with a shared 20-minute cooldown. Rival is
+a playful acknowledgement of a changed working provider or a user preview, never
+window-title scanning. Insult is an explicit user preview or /chaos command; model,
+screen and file text cannot trigger it. Chaos adds at most three seconds of small
+pose wobble, without flashes. Check-ins default off and run from injected minute
+ticks; missed prompts are not queued. Apology/Calm merely clears a mood; no apology
+is necessary for automatic expiry. Original coercive upstream persona/sulk logic
+stays dormant; only thresholds and existing character/render mechanics are reused.
+
+`src/main/fun/service.ts` interprets Persist, Caption, Chaos, Schedule and Clear.
+The main process combines renderer visual eligibility with trusted companion and
+agent/assistant approval state. A renderer pulse can reduce eligibility, never
+bypass a pending approval. Renderer pulses are parsed and Click/Pet events cannot
+supply XP. The bounded XP/day/earned record in fun-state.json is serialized and
+written atomically; invalid data falls back to zero and failures show a warning.
+No chat, window title, music title or other private text is stored there.
+
+### M24: rendering and music
+
+`src/core/fun/visual.ts` derives ride/dance/clone/chaos eligibility. The overlay
+adapter composes with existing onPose/onMove/onVisibility callbacks, preserving
+signature priority and exposure sheets. It does not add a new frame loop. Cursor
+riding follows a sampled pointer position with bounded smoothing; it does not move
+the real mouse or intercept its clicks. Dance is a small procedural sway while the
+Windows media session reports Playing, not beat detection or audio capture. Both
+request moving-rate rendering and yield to signatures, dragging, pointing, sleep,
+hidden/stowed/fullscreen/pause, quiet and reduced motion. Window wandering is also
+suspended while fun eligibility is blocked, and cursor riding takes priority over it.
+
+At most two small canvas echoes copy the current selected-art sprite after draw.
+They use pointer-events:none, do not create agent identities, never execute actions,
+and are cleared immediately when blocked/hidden or settings change. They disappear
+entirely under reduced motion. No new art, traced geometry or exposure data is added.
+The agent approval caption/card remains separate from optional fun captions.
+
+The compact mini player is in the Assistant window. Opting into miniPlayer or
+dance polls the current Windows GSMTC session at five-second intervals, using the
+existing fixed native helper. A validated bounded title/artist/playing record is
+rendered with textContent only, kept in memory and never sent to a model or logged.
+Playback metadata failures show an unavailable state; they do not retry controls.
+Previous/Play-Pause/Next submit the existing exact Music proposal and require the
+same user confirmation/audit as Phase 2. These controls are not synthesized keys.
+
+### M25: constrained input-job boundary
+
+Phase 2's blanket input-synthesis exclusion is extended only for ListInputTargets
+and InputJob actions. Both use the existing pure assistant lifecycle. List requires
+a user approval; it yields session-only opaque IDs bound to checked native process
+identity, executable allow-list, creation stamp, window handle and client rectangle.
+InputJob has 1–20 strict Move/Click/Key steps. Coordinates are normalized [0,1] in
+that exact client rectangle. Keys are Left/Right/Up/Down/Tab/Escape/Home/End only.
+There is no text/Unicode typing, modifier, Enter, arbitrary shortcut, shell,
+executable path, password/card entry, message sending or background exploration.
+The initial native scope is Calculator and Notepad only; other apps fail closed.
+
+Only a matching visible/unblocked user Approve emits Execute in that same core
+step, after a durable decision audit. The exact target PID/name/geometry and full
+step sequence appear in the existing confirmation card. Target IDs are consumed
+before execution and are invalidated by a new list. No native retry exists.
+Windows and a successfully registered Control+Alt+Escape global stop shortcut are
+required; otherwise both input actions are blocked. Stop/hide/fullscreen/stow/pause,
+a pending agent request, or the global stop key abort the helper through the active
+run's AbortController. A native Escape check also stops between steps. No real
+input is performed by automated tests; executor contracts inject recording fakes.
+
+`src/main/fun/input.ts` only launches the bundled fixed input-jobs.ps1 helper and
+passes validated JSON on stdin. Its output/deadline are bounded, stderr discarded,
+and errors generic. The helper validates trusted Windows executable locations,
+process start time, main handle, exact client geometry and foreground identity
+before each step, refusing held modifiers/buttons and covered mouse points. It
+focuses only the confirmed target; if Windows refuses focus or input (including
+UIPI), the job fails without retry. It sets per-monitor DPI awareness and rechecks
+geometry. Mouse points stay inside the client area, avoiding title-bar buttons.
+Keys/clicks use one SendInput down/up pair, with best-effort key-up on partial failure.
+No key remains intentionally held between steps. Inter-step waits are 100 ms; no
+core test uses real sleeps. Native APIs: Microsoft SendInput, SetForegroundWindow,
+GetAsyncKeyState and GetClientRect; global stop uses Electron globalShortcut.
+
+Stop prevents future scheduled/native steps; it cannot undo a completed move/click
+or interrupt an OS input batch already in progress. Focus/geometry revalidation
+reduces races but cannot eliminate a window changing during an OS call. Native
+Windows smoke, physical stop latency, focus rejection, app variants, DPI and held
+key behavior remain explicit manual acceptance in PHASE4_ACCEPTANCE.md. No claim
+of native safety acceptance is inferred from Linux tests. Packaging includes and
+byte-checks the fixed helper, and excludes personal bond data. No Later work starts.

@@ -1,7 +1,10 @@
+import {jobStep} from './fun';
 import {z} from 'zod';
 import type {Action,Message} from '../core/assistant/model';
 const short=z.string().trim().min(1).max(200),id=z.string().min(1).max(512),body=z.string().min(1).max(16000);
 export const assistantAction:z.ZodType<Action>=z.discriminatedUnion('tag',[
+ z.object({tag:z.literal('ListInputTargets')}).strict(),
+ z.object({tag:z.literal('InputJob'),id,steps:z.array(jobStep).min(1).max(20)}).strict(),
  z.object({tag:z.literal('Note'),title:short,text:body}).strict(),
  z.object({tag:z.literal('Remember'),text:z.string().min(1).max(2000)}).strict(),
  z.object({tag:z.literal('Reminder'),text:short,minutes:z.number().int().min(1).max(10080)}).strict(),

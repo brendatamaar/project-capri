@@ -3,7 +3,7 @@ export const nativeRequest=z.discriminatedUnion('op',[
  z.object({op:z.literal('list')}).strict(),
  z.object({op:z.literal('close'),pid:z.number().int().positive(),stamp:z.string().regex(/^\d{1,30}$/)}).strict(),
  z.object({op:z.literal('launch'),app:z.enum(['calculator','notepad'])}).strict(),
- z.object({op:z.literal('music'),operation:z.enum(['playPause','next','previous','volume']),value:z.number().int().min(0).max(100).optional()}).strict(),
+ z.object({op:z.literal('music'),operation:z.enum(['playPause','next','previous','volume','status']),value:z.number().int().min(0).max(100).optional()}).strict(),
 ]);
 export const nativeApps=z.array(z.object({pid:z.number().int().positive(),name:z.string().max(512),stamp:z.string().regex(/^\d{1,30}$/)})).max(128);
 export function nativeControl(value:unknown,signal:AbortSignal):Promise<unknown>{

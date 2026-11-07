@@ -1,3 +1,4 @@
+export type JobStep={tag:'Move'|'Click';x:number;y:number}|{tag:'Key';key:'Left'|'Right'|'Up'|'Down'|'Tab'|'Escape'|'Home'|'End'};
 export type Action =
  | {tag:'Note';title:string;text:string}
  | {tag:'Remember';text:string}
@@ -9,6 +10,8 @@ export type Action =
  | {tag:'LaunchApp';app:'calculator'|'notepad'}
  | {tag:'CloseApp';id:string}
  | {tag:'ListApps'}
+ | {tag:'ListInputTargets'}
+ | {tag:'InputJob';id:string;steps:readonly JobStep[]}
  | {tag:'Music';operation:'playPause'|'next'|'previous'|'volume';value?:number}
  | {tag:'Point';x:number;y:number;label:string}
  | {tag:'StartThread';projectId:string;provider:string;model:string;title:string;prompt:string}

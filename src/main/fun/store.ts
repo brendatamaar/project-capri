@@ -1,0 +1,3 @@
+import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';import path from 'node:path';import {z} from 'zod';
+export const bondData=z.object({xp:z.number().int().min(0).max(1000),day:z.string().max(20),earned:z.number().int().min(0).max(30)}).strict();
+export function bondStore(directory:string){const file=path.join(directory,'fun-state.json');let tail=Promise.resolve();return {async load(){try{return bondData.parse(JSON.parse(await readFile(file,'utf8')));}catch{return {xp:0,day:'',earned:0};}},save(value:unknown){const parsed=bondData.parse(value);const next=tail.then(async()=>{await mkdir(directory,{recursive:true});await writeFile(file+'.tmp',JSON.stringify(parsed),{mode:0o600});await rename(file+'.tmp',file);});tail=next.catch(()=>{});return next;}};}
