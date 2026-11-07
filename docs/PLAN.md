@@ -2,7 +2,9 @@
 
 This plan builds the overlay companion first, then connects her to coding agents. `PRD.md` owns product scope, `DESIGN.md` owns behavior, and this file owns order and progress.
 
-Current milestone: **M18: Phase 2 implementation and automated verification complete; manual acceptance pending. M14–M18 were implemented in order under the user’s authorization to finish Phase 2. Windows/live-provider acceptance and the earlier full-week trial remain pending. Do not start Phase 3.**
+Current milestone: **Phase 3 voice and screen implementation and automated verification complete; manual acceptance pending.
+User authorized completing Phase 3 on 2026-11-07. Stop before Phase 4.
+Earlier Windows/live-provider acceptance and the full-week trial remain pending.**
 
 Repository audit (2026-11-06): work began from clean main at `71f7688`, containing M0–M6. The current request supersedes the earlier Phase 1 stop. The implemented monitoring fallback and evidence are recorded below; full acceptance is still pending.
 
@@ -432,12 +434,66 @@ Phase 2 verification (2026-11-07):
 
 ## Phase 3: Voice and screen
 
-- [ ] Add typed-only, local, custom, and cloud voice settings.
-- [ ] Add Kokoro and Parakeet.
-- [ ] Add lip-sync from real audio.
-- [ ] Add push-to-talk and optional wake word.
-- [ ] Add screen look on request.
-- [ ] Add optional periodic screen watching, off by default.
+### M19: Media lifecycle and settings
+
+- [x] Pure tagged lifecycle and run-scoped commands, cancellation and property tests.
+- [x] Typed-only/local/custom/cloud settings with endpoint validation and consent.
+- [x] Main-only encrypted atomic credentials and memory-only fallback.
+
+### M20: Audio and interaction
+
+- [x] Kokoro speech and Parakeet WAV transcription through separate local services.
+- [x] Explicit speech playback, audio RMS lip-sync for optional live face and meter.
+- [x] Mouse/keyboard push-to-talk, visible mic indicator and optional wake phrase.
+- [x] Typed transcript review; no automatic chat/action submission.
+
+### M21: Screen access
+
+- [x] Explicit display selection and one-shot capture, with in-memory preview.
+- [x] Optional periodic local watching, off by default; no automatic image uploads.
+- [x] Separate explicit vision request, bounded parsing and untrusted descriptions.
+- [x] Stop/hide/block cancellation and stale-result protection.
+
+### M22: Phase 3 verification
+
+- [x] Finish check, core/contracts/full suite and Electron regression smoke.
+- [x] Verify Windows unpacked archive and built-ASAR smoke.
+- [x] Document usage, licensing, privacy boundaries and manual checks.
+- [ ] Native Windows / real Kokoro, Parakeet, microphone and vision acceptance in
+  docs/PHASE3_ACCEPTANCE.md (human checks; not inferred from automated tests).
+
+Phase 3 verification (2026-11-07):
+
+- npm run check passes under Node 22.23.4. Final full suite: 165 Vitest tests
+  plus 5 unchanged hook tests. Dedicated core (51) and contracts (93 before the
+  final added deadline test, also passed in the full suite) pass. Node 18 cannot
+  launch Vitest and is below the project's declared Node >=22.12 requirement.
+- Full Linux Electron e2e passes: four art cases, overlay/live-face and existing
+  30/60 fps assertions, agent board and assistant/media smoke. Media smoke covers
+  typed defaults, invalid IPC, secret isolation, original-placeholder capture
+  preview, watch/Stop and hidden cleanup. Production desktop/microphone contents
+  are not used. Temporary Xvfb/libraries and explicit test-only software-GL and
+  no-sandbox flags were required; production sandbox settings remain enabled.
+- Final alpha.3 Windows unpacked cross-build and archive checks pass with executable
+  resource editing/signing disabled. The built-ASAR assistant/media/placeholder
+  smoke passes on host Electron. No new installer or native Windows run is claimed.
+- Added regression coverage for explicit-only vision uploads after analysis,
+  watch revocation, stale transcription after Stop, encrypted settings, malformed
+  PCM, bounded HTTP results, and deadlines even when dependencies never settle.
+- Native Windows microphone/audio/DPI, actual model services, optional face lip-sync
+  visual quality and installer acceptance remain unchecked in PHASE3_ACCEPTANCE.md.
+  Kokoro/Parakeet are external services, not bundled engines. Four-second wake
+  chunks can miss a phrase crossing their boundary. Watching is a local preview;
+  it does not automatically describe or upload screens.
+- DESIGN.md and external-model notices match implementation. No vendor source,
+  exposure sheets, private art or new runtime dependency was added. No real
+  provider request or agent turn ran. No files were staged or committed.
+
+Phase 4 remains unstarted. External model servers/weights are not bundled or
+launched by Capri. Wake detection uses bounded transcription chunks, not an
+on-device keyword detector. Watching updates the local preview only; sending it
+to the configured vision model requires a separate click. The placeholder retains
+its original face-free artwork; the audio meter works without a faceAnchor.
 
 ## Phase 4: Fun extras
 
