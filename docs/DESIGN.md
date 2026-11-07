@@ -761,7 +761,58 @@ Unpaired startup leaves the standalone character alone, and explicit user sleep
 is preserved while agents merely work. Leaving the agent connection restores only
 the mode previously applied by the agent layer.
 
-## Phase 2 assistant lifecycle
+## Phase 2 M14: read-only assistant context
+
+The user authorized starting Phase 2 while M13 Windows/provider acceptance and
+the full-week trial remain pending. M14 covers context files only; provider calls,
+chat, actions, memory edits and T3 thread creation remain disabled.
+
+At startup, main loads SOUL.md, USER.md and MEMORY.md from the assistant directory
+under Electron userData, independently falling back to assistant/defaults in the
+application archive. SOUL's default is the PRD's initial personality. USER and
+MEMORY contain no personal facts. Personal files are never created or modified.
+Edits take effect on restart; no watcher or automatic memory persistence exists.
+
+The loader returns an immutable record of ContextDocument values with text,
+source (local/default) and fallback reason (missing/invalid/unavailable). Text is
+opaque untrusted context; Markdown is not executed or interpreted as permissions.
+The main-process snapshot is reserved for future assistant integration and is
+not exposed through IPC, logged, or sent over the network. This is an immutable
+startup boundary, not a behavioral state machine; no core transitions or commands
+are added. Future asynchronous assistant behavior must use step and an interpreter.
+
+Only three fixed filenames are read. Each must be a regular UTF-8 file, without
+NUL, at most 64 KiB (including any UTF-8 BOM); empty documents are valid. Reads use
+a bounded buffer for local overrides, reject symlink files/root directories, verify
+opened local file identity and close handles. Trusted bundled defaults use
+archive-aware readFile with size validation before and after reading, because
+Electron ASAR metadata is virtual and differs from extracted handle identity.
+Local failures fall back per document without exposing content
+or filesystem error strings. Missing/invalid bundled defaults fail startup with a
+generic error. This is not a sandbox against concurrent hostile filesystem changes
+in the user's own profile; ancestor directories are trusted app-owned paths.
+
+Smoke runs load defaults using an isolated userData profile. Packaging includes
+only assistant/defaults and checks their bytes against source, rejecting personal
+context filenames elsewhere in the archive. Contract tests cover independent
+fallback, exact text, UTF-8/NUL/size boundaries, link rejection, no writes, missing
+defaults, and a property for deterministic text preservation. Small-model context
+shortening and user-visible fallback status belong to the provider/UI milestones.
+
+
+## Phase 2 assistant service
+
+M15 adds a main-only provider port for Ollama NDJSON and OpenAI-compatible Chat
+Completions SSE. Explicit endpoint/model configuration is required; default is
+Offline. Remote endpoints require HTTPS and explicit cloud-context consent. Requests
+reject redirects. Keys/config are encrypted in assistant-provider.bin; unavailable
+encryption keeps them in memory. Views contain only config and hasKey, never keys.
+The request_action function can propose one strictly validated action after a complete
+stream. Partial/truncated/error output cannot authorize an action. Both protocols
+bound stream/frame sizes; no adapter-level retries. Context shortening limits each
+personality document, and conversation history is bounded. Source protocols:
+https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events
+and https://docs.ollama.com/api/chat (verified 2026-11-07).
 
 M16 transitions (pure src/core/assistant, service profile): Submit with a newer
 injected runId enters Generating and emits Generate; chunks must match run/attempt
@@ -776,5 +827,3 @@ text can approve itself. Execute has no retry. Uncertain/cancelled effects are
 reported honestly; Stop cannot undo an already committed filesystem write or a
 T3 command already accepted remotely. There is no shell/program/purchase/messaging,
 password, screen-capture or input-synthesis action in the closed action union.
-
-Reminder due detection is a separate pure reducer with injected time and generation guards.
