@@ -1,6 +1,7 @@
-export type Settings = Readonly<{ scale: number; quiet: boolean; stowed: boolean; motion: 'auto' | 'full' | 'reduced'; fps: 30 | 60;
+import type {Settings as FunSettings} from './fun/step';
+export type Settings = Readonly<FunSettings & { scale: number; quiet: boolean; stowed: boolean; motion: 'auto' | 'full' | 'reduced'; fps: 30 | 60;
   paused:boolean;wander:boolean;drag:boolean;peek:boolean;pet:boolean;zap:boolean;satellite:boolean;pcReactions:boolean;possess:boolean;follow:boolean;rest:'corner'|'taskbar'|'floor';displayId:number|null;artPack:'auto'|'installed'|'development'|'placeholder';startWithWindows:boolean }>;
-export const DEFAULT_SETTINGS:Settings={scale:0.6,quiet:false,stowed:false,motion:'auto',fps:60,paused:false,wander:true,drag:true,peek:true,pet:true,zap:false,satellite:false,pcReactions:false,possess:false,follow:true,rest:'corner',displayId:null,artPack:'auto',startWithWindows:false};
+export const DEFAULT_SETTINGS:Settings={bond:false,jealousy:false,checkins:false,cursorRide:false,miniPlayer:false,dance:false,clones:false,chaos:false,scale:0.6,quiet:false,stowed:false,motion:'auto',fps:60,paused:false,wander:true,drag:true,peek:true,pet:true,zap:false,satellite:false,pcReactions:false,possess:false,follow:true,rest:'corner',displayId:null,artPack:'auto',startWithWindows:false};
 export type State = { readonly tag: 'Active'; readonly settings: Settings; readonly fullscreen: boolean } | { readonly tag: 'Stopped' };
 export type Action = 'teleport' | 'sleep' | 'wake' | 'peek' | 'lie' | 'zap' | 'satellite' | 'showcase' | 'sit-icon';
 export type Input =

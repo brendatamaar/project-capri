@@ -1,3 +1,4 @@
+import './fun';
 import './media';
 import type {AssistantHost,AssistantView} from '../../shared/assistant';
 declare global{interface Window{assistant:AssistantHost}}

@@ -1,3 +1,4 @@
+import {overlayFun} from '../../shared/fun';
 import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, globalShortcut, screen, protocol, powerMonitor, shell, type IpcMainInvokeEvent, type IpcMainEvent, type MenuItemConstructorOptions } from 'electron';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +10,7 @@ import { watchWindows } from './watch';
 import type { ArtDescriptor } from '../../shared/art';
 
 export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard?:()=>void,openAssistant?:()=>void) {
+  const funListeners=new Set<(value:ReturnType<typeof overlayFun.parse>)=>void>();
   const listeners=new Set<()=>void>();
   let state: State = initialCompanion(await readSettings(app.getPath('userData')));
   const selected = () => screen.getAllDisplays().find(display=>state.tag==='Active'&&display.id===state.settings.displayId)??screen.getPrimaryDisplay();
@@ -45,6 +47,7 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard
       { label: 'Motion', submenu: (['auto', 'full', 'reduced'] as const).map(motion => ({ label: motion, type: 'radio', checked: settings.motion === motion, click: () => dispatch({ tag: 'SettingsChanged', patch: { motion } }) })) },
       { label: 'Frame rate', submenu: ([30,60] as const).map(fps => ({ label: `${fps} fps`, type: 'radio', checked: settings.fps === fps, click: () => dispatch({ tag: 'SettingsChanged', patch: { fps } }) })) },
       {label:'Behaviors',submenu:([['wander','Wander'],['drag','Drag and throw'],['peek','Edge peeking'],['pet','Head pats'],['zap','Pointer zap (visual only)'],['satellite','Satellite'],['pcReactions','React to PC'],['possess','Window possession (visual only)'],['follow','Follow across monitors']] as const).map(([key,label])=>({label,type:'checkbox',checked:settings[key],click:()=>dispatch({tag:'SettingsChanged',patch:{[key]:!settings[key]}})}))},
+      {label:'Fun extras (opt-in)',submenu:([['bond','Bond progress'],['jealousy','Playful jealousy'],['checkins','Check-ins'],['cursorRide','Ride cursor'],['miniPlayer','Music mini player'],['dance','Dance with music'],['clones','Visual clones'],['chaos','Theatrical chaos']] as const).map(([key,label])=>({label,type:'checkbox',checked:settings[key],click:()=>dispatch({tag:'SettingsChanged',patch:{[key]:!settings[key]}})}))},
       {label:'Rest',submenu:(['corner','taskbar','floor'] as const).map(rest=>({label:rest,type:'radio',checked:settings.rest===rest,click:()=>dispatch({tag:'SettingsChanged',patch:{rest}})}))},
       {label:'Art pack (restart to apply)',submenu:(['auto','installed','development','placeholder'] as const).map(artPack=>({label:artPack,type:'radio',checked:settings.artPack===artPack,click:()=>dispatch({tag:'SettingsChanged',patch:{artPack}})}))},
       {label:'Start with Windows',type:'checkbox',enabled:app.isPackaged,checked:settings.startWithWindows,click:()=>dispatch({tag:'SettingsChanged',patch:{startWithWindows:!settings.startWithWindows}})},
@@ -109,6 +112,7 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard
   ipcMain.on('companion:interactive', (event, value: unknown) => {
     if (own(event) && typeof value === 'boolean') window.setIgnoreMouseEvents(state.tag !== 'Active' || state.fullscreen || state.settings.paused || !value, { forward: true });
   });
+  ipcMain.on('companion:fun',(event,value:unknown)=>{if(!own(event))return;const parsed=overlayFun.safeParse(value);if(parsed.success)for(const listener of funListeners)listener(parsed.data);});
   ipcMain.on('companion:menu', event => { if (own(event)) menu()?.popup({ window }); });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -138,5 +142,5 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard
   window.once('ready-to-show', () => { resize();if (!smoke && state.tag === 'Active' && !state.fullscreen&&!state.settings.paused) window.showInactive(); });
   if(state.tag==='Active'&&state.settings.paused&&!smoke)await window.loadFile(path.join(__dirname,'../renderer/overlay/paused.html'));
   else await window.loadFile(path.join(__dirname, '../renderer/overlay/index.html'), { query: smoke ? { smoke: 'true' } : {} });
-  return { window, dispatch, receive, state: () => state, saved: () => saveTail,agent:send,subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};} };
+  return {onFun:(listener:(value:ReturnType<typeof overlayFun.parse>)=>void)=>{funListeners.add(listener);return()=>{funListeners.delete(listener);};}, window, dispatch, receive, state: () => state, saved: () => saveTail,agent:send,subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};} };
 }

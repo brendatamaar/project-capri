@@ -1,3 +1,4 @@
+import {installFun} from './fun';
 // New companion-only wiring; the upstream app/brain/chat/setup entry is never imported.
 // @ts-expect-error Retained character implementation stays JavaScript.
 import { Capri } from '../js/capri.js';
@@ -31,6 +32,7 @@ async function boot() {
   const voice = new Voice();
   const capri = new Capri({ root, canvas, image: art.image, fx, voice });
   const motion = installMotion(capri, pack);
+  const fun=installFun(capri,canvas,root,v=>host.fun(v),()=>reducedMotion.matches);
   // Disruptive features remain opt-in through validated preferences.
   capri.possessWindows = false; capri.wander = true; capri.nextGaze = Infinity; capri.uplinkDue = false;
   const compact = document.querySelector<HTMLCanvasElement>('#compact')!;
@@ -44,7 +46,7 @@ async function boot() {
   capri.onStow = showCompact; capri.onUnstow = hideCompact;
   capri.onDoze = (phase: string) => phase === 'start' ? showCompact() : hideCompact();
   capri.onMenu = () => host.menu();
-  capri.onClick = () => { capri.wake(); capri.perform('look'); };
+  capri.onClick = () => {host.fun({tag:'Click'}); capri.wake(); capri.perform('look'); };
   let fullscreen = false;
   let preferences=await host.settings();
   let screens=await host.screens();
@@ -61,14 +63,14 @@ async function boot() {
     finally { syncing = false; if (fullscreen) compact.hidden = true; }
   };
   const applySettings = (settings: Settings) => {
-    preferences=settings;
+    preferences=settings;fun.settings(settings);
     voice.configure({ muted: settings.quiet, volume: 0.5 });
     motion.setQuiet(settings.quiet);
     reducedMotion.setting = settings.motion;
     capri.setScale(settings.scale);
     capri.frameSetting = settings.fps;
     capri.behaviors={drag:settings.drag,peek:settings.peek,pet:settings.pet,zap:settings.zap,satellite:settings.satellite};
-    capri.wander=settings.wander;capri.possessWindows=settings.possess;capri.restOn=settings.rest;
+    capri.possessWindows=settings.possess;capri.restOn=settings.rest;
     capri.nextGaze=settings.satellite?(Number.isFinite(capri.nextGaze)?capri.nextGaze:performance.now()+90000):Infinity;
     capri.suspended=settings.paused||fullscreen;
     capri.setHidden(capri.suspended||capri.stowed||capri.dormant);
@@ -127,17 +129,19 @@ async function boot() {
     else if(kind==='NeedsYou'&&!reduced&&capri.mouse)void capri.teleport({x:Math.max(80,Math.min(innerWidth-80,capri.mouse.x+100)),y:Math.max(160,Math.min(innerHeight-50,capri.mouse.y))}).then(()=>capri.perform('look'));
     else void capri.perform(reduced?'look':kind==='Done'?'victory':kind==='Failed'?'flinch':kind==='NeedsYou'?'look':'curious');
   };
-  const agentTimer=setInterval(processAgentReaction,500);
+  const agentTimer=setInterval(()=>{processAgentReaction();fun.pulse();},500);
   window.addEventListener('beforeunload',()=>clearInterval(agentTimer));
   const receive = (event: OverlayEvent) => {
     switch (event.tag) {
+      case 'fun':fun.frame(event);return;
+      case 'musicPlaying':fun.playing(event.playing);return;
       case 'audioLevel':capri.audioLevel=fullscreen||preferences.paused?0:event.level;return;
       case 'assistantPoint':stopGuide();pendingGuide={...event,until:performance.now()+5000};return;
       case 'assistantStop':stopGuide();return;
       case 'settings': applySettings(event.settings); return;
       case 'hidden': applyHidden(event.hidden); return;
       case 'agent':
-        if(agentPresence!==event.presence||agentActive!==event.active)pendingPresence=true;agentPresence=event.presence;agentActive=event.active;
+        if(agentPresence!==event.presence||agentActive!==event.active)pendingPresence=true;agentPresence=event.presence;agentActive=event.active;if(event.presence==='NeedsYou')fun.frame({tag:'fun',eligible:false,chaosUntil:0,caption:''});
         agentCard=event.card;if(event.presence!=='NeedsYou'){if(pendingAgent?.kind==='NeedsYou')pendingAgent=null;if(capri.pointing&&!guideActive&&!capri.busy&&!capri.act)capri.stopPointing();}
         agentCaption.textContent=event.presence==='Thinking'?`${event.caption} · Thinking (15s+)`:event.caption;agentCaption.hidden=!event.caption||fullscreen||preferences.paused;return;
       case 'agentReaction':pendingAgent={kind:event.kind,until:performance.now()+5000};return;
@@ -145,7 +149,7 @@ async function boot() {
       case 'resize': fx.resize(event.width, event.height); capri.setView(event.width, event.height,event.height-event.floorGap);void host.screens().then(value=>{screens=value;}); return;
       case 'screen': void goToScreen(event.id);return;
       case 'machine': {
-        const result=stepReaction(reactionState,{tag:'Observed',now:performance.now(),machine:{cpu:event.cpu,battery:event.battery,online:navigator.onLine,devices:desktop.deviceRevision??desktop.removableDevices??0,game:desktop.game??false},enabled:preferences.pcReactions,quiet:preferences.quiet,eligible:!capri.busy&&!capri.act&&!capri.hidden&&!capri.stowed&&!preferences.paused});
+        const result=stepReaction(reactionState,{tag:'Observed',now:performance.now(),machine:{cpu:event.cpu,battery:event.battery,online:navigator.onLine,devices:desktop.deviceRevision??desktop.removableDevices??0,game:desktop.game??false},enabled:preferences.pcReactions,quiet:preferences.quiet,eligible:agentPresence!=='NeedsYou'&&!capri.busy&&!capri.act&&!capri.hidden&&!capri.stowed&&!preferences.paused});
         reactionState=result.state;for(const command of result.commands)capri.perform(command.action);return;
       }
       case 'action':
@@ -182,7 +186,7 @@ async function boot() {
     if (onCompact(event.clientX,event.clientY)) { if (capri.dormant) capri.wake(); else void host.update({ stowed: false }); }
   });
   window.addEventListener('contextmenu', event => { event.preventDefault(); if (onCompact(event.clientX,event.clientY)) host.menu(); });
-  const pointer = setInterval(() => { void host.cursor().then(point => refresh(point.x,point.y)); }, 300);
+  const pointer = setInterval(() => { void host.cursor().then(point => {fun.cursor(point);refresh(point.x,point.y);}); }, 300);
   const follow=setInterval(()=>{void host.cursor().then(cursor=>{
     const result=stepFollow(followState,{tag:'Pointer',current:screens.current,display:cursor.display,enabled:preferences.follow&&!preferences.paused,eligible:!capri.busy&&!capri.act&&!capri.dragging&&!capri.hidden&&!capri.stowed&&capri.mode!=='sleep'});
     followState=result.state;for(const command of result.commands)void goToScreen(command.display);
@@ -192,7 +196,7 @@ async function boot() {
   if (smoke) {
     capri.wander = false; capri.nextTwitch = Infinity;
     capri.drawFrame();
-    window.__companionTest = { capri, hit, host, receive, processAgentReaction };
+    window.__companionTest = { capri, hit, host, receive, processAgentReaction, fun };
   } else if (!desiredStowed&&!preferences.paused) void capri.intro(capri.spot('post'), { label: 'hi', caption: pack.name });
   document.body.dataset.ready = 'true';
 }

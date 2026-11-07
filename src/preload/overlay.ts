@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { OverlayHost, OverlayEvent } from '../shared/overlay';
 const host: OverlayHost = {
+  fun:value=>ipcRenderer.send('companion:fun',value),
   settings: () => ipcRenderer.invoke('companion:settings'),
   update: patch => ipcRenderer.invoke('companion:update', patch),
   interactive: on => ipcRenderer.send('companion:interactive', on),

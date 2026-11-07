@@ -1,6 +1,8 @@
+import type {FunEvent} from './fun';
 import { z } from 'zod';
 import type { Settings, Action } from '../core/companion';
 export const settingsSchema = z.object({
+  bond:z.boolean().default(false),jealousy:z.boolean().default(false),checkins:z.boolean().default(false),cursorRide:z.boolean().default(false),miniPlayer:z.boolean().default(false),dance:z.boolean().default(false),clones:z.boolean().default(false),chaos:z.boolean().default(false),
   scale: z.number().finite().min(0.3).max(1.2).default(0.6), quiet: z.boolean().default(false),
   stowed: z.boolean().default(false), motion: z.enum(['auto', 'full', 'reduced']).default('auto'),
   fps: z.union([z.literal(30), z.literal(60)]).default(60),
@@ -15,8 +17,9 @@ export const frameSchema = z.object({ id: z.number().int().safe(), x: z.number()
 export const desktopSchema = z.object({ fg: z.number().int().safe(), fullscreen: z.boolean(), wins: z.array(frameSchema).max(256),game:z.boolean().optional(),removableDevices:z.number().int().min(0).max(256).optional(),deviceRevision:z.number().int().safe().nonnegative().optional() }).strict();
 export type Desktop = z.infer<typeof desktopSchema>;
 export type Screens = {current:number;origin:{x:number;y:number};floorGap:number;list:{id:number;x:number;y:number;w:number;h:number}[]};
-export type OverlayEvent = {tag:'audioLevel';level:number} | {tag:'assistantPoint';runId:number;x:number;y:number;label:string} | {tag:'assistantStop'} | {tag:'agent';active:boolean;presence:string;caption:string;card?:{x:number;y:number;w:number;h:number}} | {tag:'agentReaction';kind:'Done'|'Failed'|'NeedsYou'|'Working'} | { tag: 'settings'; settings: Settings } | { tag: 'hidden'; hidden: boolean } | { tag: 'action'; action: Action } | { tag: 'desktop'; desktop: Desktop } | { tag: 'resize'; width: number; height: number;floorGap:number } | {tag:'screen';id:number} | {tag:'machine';cpu:number;battery:boolean};
+export type OverlayEvent = FunEvent | {tag:'musicPlaying';playing:boolean} | {tag:'audioLevel';level:number} | {tag:'assistantPoint';runId:number;x:number;y:number;label:string} | {tag:'assistantStop'} | {tag:'agent';active:boolean;presence:string;caption:string;card?:{x:number;y:number;w:number;h:number}} | {tag:'agentReaction';kind:'Done'|'Failed'|'NeedsYou'|'Working'} | { tag: 'settings'; settings: Settings } | { tag: 'hidden'; hidden: boolean } | { tag: 'action'; action: Action } | { tag: 'desktop'; desktop: Desktop } | { tag: 'resize'; width: number; height: number;floorGap:number } | {tag:'screen';id:number} | {tag:'machine';cpu:number;battery:boolean};
 export interface OverlayHost {
+  fun(value:unknown):void;
   settings(): Promise<Settings>;
   update(patch: Partial<Settings>): Promise<void>;
   interactive(on: boolean): void;

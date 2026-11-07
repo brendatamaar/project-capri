@@ -5,3 +5,6 @@ contextBridge.exposeInMainWorld('assistant',host);
 import type {MediaHost,MediaView,MediaEvent} from '../shared/media';
 const media:MediaHost={view:()=>ipcRenderer.invoke('media:view'),act:value=>ipcRenderer.invoke('media:act',value),onView:fn=>{const listener=(_e:Electron.IpcRendererEvent,v:MediaView)=>fn(v);ipcRenderer.on('media:view',listener);return()=>ipcRenderer.removeListener('media:view',listener);},onEvent:fn=>{const listener=(_e:Electron.IpcRendererEvent,v:MediaEvent)=>fn(v);ipcRenderer.on('media:event',listener);return()=>ipcRenderer.removeListener('media:event',listener);}};
 contextBridge.exposeInMainWorld('media',media);
+
+import type {FunHost,FunView} from '../shared/fun';
+const fun:FunHost={view:()=>ipcRenderer.invoke('fun:view'),act:value=>ipcRenderer.invoke('fun:act',value),onView:fn=>{const listener=(_e:Electron.IpcRendererEvent,v:FunView)=>fn(v);ipcRenderer.on('fun:view',listener);return()=>ipcRenderer.removeListener('fun:view',listener);}};contextBridge.exposeInMainWorld('fun',fun);
