@@ -2,7 +2,7 @@
 
 This plan builds the overlay companion first, then connects her to coding agents. `PRD.md` owns product scope, `DESIGN.md` owns behavior, and this file owns order and progress.
 
-Current milestone: **M13 acceptance pending. The approved Phase 1 monitoring fallback implementation is validated; Windows installer completion, real Windows/provider acceptance and the full-week trial remain outstanding.**
+Current milestone: **M18: Phase 2 implementation and automated verification complete; manual acceptance pending. M14–M18 were implemented in order under the user’s authorization to finish Phase 2. Windows/live-provider acceptance and the earlier full-week trial remain pending. Do not start Phase 3.**
 
 Repository audit (2026-11-06): work began from clean main at `71f7688`, containing M0–M6. The current request supersedes the earlier Phase 1 stop. The implemented monitoring fallback and evidence are recorded below; full acceptance is still pending.
 
@@ -324,18 +324,111 @@ Release validation (2026-11-07):
 
 Windows/manual and full-week use are not accepted from source tests. Full outside
 approvals are deferred by the approved scope, not counted as passing provider tests.
-No Phase 2 work has started. The user authorized splitting this implementation into focused Conventional Commits and pushing them to origin/main on 2026-11-07. The commit history records that checkpoint; manual acceptance remains pending.
+At that checkpoint no Phase 2 work had started. The user authorized splitting that implementation into focused Conventional Commits and pushing them to origin/main on 2026-11-07. The commit history records that checkpoint; manual acceptance remains pending.
+
+M13 revalidation (2026-11-07, current checkout):
+
+- Inspection found the approved Phase 1 monitoring implementation already present;
+  no new behavior or approval capability was added. Corrected DESIGN.md's stale
+  opening claim that no isolated live-server verification had occurred.
+- npm run check passes. Node 22.23.4 passes 114 Vitest tests and 5 hook tests,
+  including dedicated core (35) and contract (59) suites. The shell's Node 18
+  cannot start Vitest and is below the declared Node >=22.12 requirement.
+- Existing Windows archive checks pass for original placeholder bytes, notices,
+  helper, panel/preload, CSP and excluded secret paths. This rechecks existing
+  output; it does not claim a new installer build or Windows execution.
+- Full Linux Electron e2e passes: four art scenarios, two overlay/live-face cases
+  and agent board smoke. Used the existing temporary Xvfb/shared libraries with
+  explicit test-only no-sandbox/software-GL flags; production settings unchanged.
+- Windows installer/provider/manual acceptance and the full-week trial remain
+  unchecked. No commit or next-milestone work was performed.
 
 ## Phase 2: Assistant
 
-- [ ] Add `SOUL.md`, `USER.md`, and `MEMORY.md`.
-- [ ] Add the provider interface for Ollama, OpenAI-compatible APIs, and cloud keys.
-- [ ] Add streaming, retries, stall detection, and an offline command mode.
-- [ ] Add validated action registry and policy checks.
-- [ ] Add safe PC actions, reminders, notes, file search, music controls, and app controls.
-- [ ] Add approved memory and transcript search.
-- [ ] Add T3 thread start and steering after confirmation.
-- [ ] Add guided pointing.
+The user authorized proceeding on 2026-11-07 without claiming M13 human acceptance.
+Work remains one milestone at a time; the first milestone is defined below.
+
+### M14: Personality and context files
+
+- [x] Add bundled `SOUL.md`, `USER.md`, and `MEMORY.md` defaults.
+- [x] Load fixed local overrides read-only at startup with independent fallback.
+- [x] Validate bounded UTF-8 files; reject links, NUL, oversized and non-file input.
+- [x] Test exact text, deterministic parsing, fallback and no personal-file writes.
+- [x] Document local setup, trust boundaries and packaging rules.
+- [x] Finish full tests, Electron startup and package verification.
+
+Exit: default/local context loads without granting actions or exposing personal
+text to renderers. No provider or chat behavior is enabled. Manual Windows profile
+loading remains a separate user check; no acceptance is inferred from Linux smoke.
+
+M14 verification (2026-11-07): npm run check passes; 120 Vitest tests and 5 hook
+tests pass, with core (35) and contracts (65) passing separately. Full source
+Electron e2e passes with original placeholder art using the existing temporary
+Linux runtime and explicit test-only software-GL/no-sandbox flags. Windows unpacked
+cross-build and archive checks pass with resource editing/signing disabled. The
+new test:context-packaged smoke runs the built ASAR on host Electron and passes
+default context loading plus placeholder rendering. It caught an ASAR virtual-stat
+identity mismatch; bundled reads now use archive-aware readFile, while personal
+overrides retain bounded handle reads. No installer or native Windows run is
+claimed. No files were staged or committed; the next milestone was not started.
+
+### M15: Providers
+
+- [x] Unified Ollama/compatible streaming port and bounded complete-stream proposals.
+- [x] Main-only encrypted settings/key storage with memory fallback.
+- [x] Parser, failure, configuration and credential-store contract tests.
+
+### M16: Assistant lifecycle and policy
+
+- [x] Pure lifecycle, retry/stall/cancellation transitions and invariant properties.
+- [x] Offline command parser and exact action proposal validation.
+
+### M17: Actions, storage and T3 operations
+
+- [x] Notes, reminders, approved memory and local SQLite transcript search.
+- [x] Constrained file search, music/app controls and trusted native boundaries.
+- [x] Separate operating-scope pairing and confirmed T3 start/steering.
+
+### M18: Assistant UI and release verification
+
+- [x] Typed isolated assistant window, provider setup, exact approvals and Stop.
+- [x] Guided pointing, integration smoke and package checks.
+- [x] Document manual acceptance and remaining limitations.
+- [ ] Run real Windows/live-provider acceptance in docs/PHASE2_ACCEPTANCE.md.
+
+### Phase 2 feature checklist
+
+- [x] Add the provider interface for Ollama, OpenAI-compatible APIs, and cloud keys.
+- [x] Add streaming, retries, stall detection, and an offline command mode.
+- [x] Add validated action registry and policy checks.
+- [x] Add safe PC actions, reminders, notes, file search, music controls, and app controls.
+- [x] Add approved memory and transcript search.
+- [x] Add T3 thread start and steering after confirmation.
+- [x] Add guided pointing.
+
+Phase 2 verification (2026-11-07):
+
+- npm run check passes under Node 22.23.4. Full suite: 150 Vitest + 5 hook tests;
+  dedicated core 45 and contracts 85 pass. No new dependency was installed; alpha.2
+  uses Node/Electron's built-in SQLite (experimental warning on Node 22).
+- Full Linux Electron e2e passes: four art scenarios, two overlay/live-face cases,
+  unchanged monitoring board smoke, and new assistant confirmation/XSS/hide/memory/
+  secret-isolation/signature/point-cancellation smoke. Existing 30/60 fps assertions
+  pass. Temporary Xvfb/shared libraries and explicit test-only software-GL/no-sandbox
+  flags were required; production sandbox/context-isolation settings are unchanged.
+- Alpha.2 Windows unpacked cross-build and all archive checks pass with executable
+  resource editing/signing disabled. Built-ASAR context/placeholder smoke and the
+  full assistant smoke pass on host Electron. This is not native Windows execution.
+  No new installer was built; Windows npm run dist and native acceptance remain.
+- Fixture/provider failures caught SQLite LIKE escaping and installed-ASAR file
+  identity issues; both are fixed. Decision-audit failure blocks execution; Forget
+  disables the provider in memory even when deleting its saved file fails. Late
+  guide cancellation does not resurrect a pointer after teleport or cancel a newer
+  guide. Native controls and actual model/T3 compatibility require manual evidence.
+- DESIGN.md, usage/acceptance and third-party provenance match implementation.
+  No vendor source or exposure sheets changed. No real provider request/agent turn
+  or live-user-data test ran. No files were staged, no commit/PR was made, and
+  Phase 3 was not started.
 
 ## Phase 3: Voice and screen
 

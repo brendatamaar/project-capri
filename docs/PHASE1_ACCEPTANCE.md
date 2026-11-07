@@ -26,6 +26,16 @@ separate provider gate and read/operate scopes; never infer support from this re
 
 ## Required manual checks (not yet accepted)
 
+Current-checkout revalidation on 2026-11-07: npm run check, 114 Vitest tests,
+5 hook tests, dedicated core (35) and contracts (59), and existing Windows archive
+checks pass. Tests used cached Node 22.23.4 because the default Node 18 does not
+meet package.json's >=22.12 requirement. No real provider turn, approval response,
+new installer build, or Windows runtime check was performed during this revalidation.
+Full Linux Electron e2e also passes (four art scenarios, two overlay/live-face
+cases and agent board smoke), using the temporary runtime and explicit test-only
+flags described above. Placeholder rendering is verified; native Windows behavior
+remains a manual check.
+
 - [ ] Install the updated unsigned Windows build with only original placeholder art.
 - [ ] Open Agent board from the tray; pair with the intended local T3Code instance.
 - [ ] Confirm real Claude/Codex/Antigravity/Muse thread statuses and permission labels.
