@@ -8,7 +8,7 @@ import { readSettings, writeSettings } from '../stores/companion-settings';
 import { watchWindows } from './watch';
 import type { ArtDescriptor } from '../../shared/art';
 
-export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard?:()=>void) {
+export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard?:()=>void,openAssistant?:()=>void) {
   const listeners=new Set<()=>void>();
   let state: State = initialCompanion(await readSettings(app.getPath('userData')));
   const selected = () => screen.getAllDisplays().find(display=>state.tag==='Active'&&display.id===state.settings.displayId)??screen.getPrimaryDisplay();
@@ -34,6 +34,7 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard
     const template: MenuItemConstructorOptions[] = [
       { label: 'Capri Companion', enabled: false },
       ...(openBoard?[{label:'Agent board',click:()=>openBoard()}]:[]),
+      ...(openAssistant?[{label:'Assistant',click:()=>openAssistant()}]:[]),
       {label:`Art: ${art.name} (${art.source})`,enabled:false},
       ...(watcherFailed ? [{ label: 'Window tracking unavailable; restart to retry', enabled: false }] : []),
       ...(storeFailed ? [{ label: 'Settings could not be saved', enabled: false }] : []),

@@ -6,6 +6,10 @@ import { loadArtPack, serveArt } from './art';
 import { createCompanion } from './windows/overlay';
 import { createAgentPanel } from './windows/agent-panel';
 import { readSettings } from './stores/companion-settings';
+import {loadAssistantContext, type AssistantContext} from './assistant/context';
+
+// Validate bundled/local context before creating windows; assistant turns refresh it.
+let assistantContext: AssistantContext | undefined;
 
 const smoke = process.argv.includes('--smoke');
 app.setName('Capri Companion');
@@ -19,6 +23,12 @@ protocol.registerSchemesAsPrivileged([
 app.whenReady().then(async () => {
   if (smoke) console.log('ART_SMOKE_STAGE:ready');
   const testRoot = smoke ? process.argv.find(arg => arg.startsWith('--smoke-art-root='))?.slice('--smoke-art-root='.length) : undefined;
+  assistantContext = await loadAssistantContext(
+    path.join(app.getPath('userData'), 'assistant'),
+    path.join(app.getAppPath(), 'assistant/defaults'),
+  );
+  if (smoke && Object.values(assistantContext).some(document => document.source !== 'default')) throw new Error('Smoke context isolation failed');
+  if (smoke) console.log('ASSISTANT_CONTEXT_OK:bundled-defaults');
   const startupSettings=await readSettings(app.getPath('userData'));
   const pack = await loadArtPack({
     installed: path.join(testRoot ?? path.join(app.getPath('appData'), 'Capri'), 'art'),
@@ -41,9 +51,10 @@ app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   if ((!smoke && !process.argv.includes('--art-preview')) || process.argv.includes('--smoke-overlay')) {
-    let openBoard:undefined|(()=>void);
-    const companion = await createCompanion(smoke,pack.descriptor,smoke?undefined:()=>openBoard?.());
-    if(!smoke){const demo=process.argv.includes('--agent-demo')?await (await import('./t3/demo')).demoConnection():undefined;const board=await createAgentPanel(companion,demo);openBoard=board.show;if(demo)board.show();}
+    let openBoard:undefined|(()=>void),openAssistant:undefined|(()=>void);
+    const companion = await createCompanion(smoke,pack.descriptor,smoke?undefined:()=>openBoard?.(),smoke?undefined:()=>openAssistant?.());
+    if(!smoke){const demo=process.argv.includes('--agent-demo')?await (await import('./t3/demo')).demoConnection():undefined;const board=await createAgentPanel(companion,demo);openBoard=board.show;if(demo)board.show();const {createAssistantPanel}=await import('./windows/assistant-panel');const assistant=await createAssistantPanel(companion,board);openAssistant=assistant.show;}
+    if(smoke&&process.argv.includes('--smoke-assistant')){const {assistantSmoke}=await import('./assistant/smoke');await assistantSmoke(companion);app.quit();return;}
     if(smoke&&process.argv.includes('--smoke-agent')){const {agentSmoke}=await import('./agent/smoke');await agentSmoke(companion);app.quit();return;}
     if (smoke) {
       const { window } = companion;

@@ -94,13 +94,25 @@ async function boot() {
     if(preferences.peek){await capri.peek('right');await capri.unpeek();}
     await capri.goHome();
   };
+  let guideRevision=0,guideActive=false;
+  let pendingGuide:{runId:number;x:number;y:number;label:string;until:number}|null=null;
+  const stopGuide=()=>{guideRevision++;pendingGuide=null;if(guideActive){guideActive=false;capri.stopPointing();}};
   let pendingAgent:{kind:'Done'|'Failed'|'NeedsYou'|'Working';until:number}|null=null;
   let agentPresence='Idle',agentActive=false,pendingPresence=false;
   let agentMode:string|null=null;
   let agentCard:{x:number;y:number;w:number;h:number}|undefined;
   const agentCaption=document.querySelector<HTMLElement>('#agent-caption')!;
   const processAgentReaction=()=>{
-    if(capri.busy||capri.act||capri.dragging||capri.hidden||capri.stowed||preferences.paused||fullscreen)return;
+    if(capri.hidden||capri.stowed||preferences.paused||fullscreen){stopGuide();return;}
+    if(capri.busy||capri.act||capri.dragging)return;
+    if(agentPresence==='NeedsYou'){stopGuide();}
+    else if(pendingGuide){
+      const guide=pendingGuide;pendingGuide=null;
+      if(performance.now()<=guide.until){const revision=++guideRevision;guideActive=true;
+        if(reducedMotion.matches)void capri.perform('look');
+        else void capri.pointAt({x:guide.x*innerWidth,y:guide.y*innerHeight,w:1,h:1},{label:guide.label,isCurrent:()=>guideRevision===revision});
+      }
+    }
     if(pendingPresence){
       pendingPresence=false;
       if(agentActive){const next=['Working','Thinking','NeedsYou'].includes(agentPresence)?'work':agentPresence==='Asleep'?'sleep':'idle';
@@ -119,11 +131,13 @@ async function boot() {
   window.addEventListener('beforeunload',()=>clearInterval(agentTimer));
   const receive = (event: OverlayEvent) => {
     switch (event.tag) {
+      case 'assistantPoint':stopGuide();pendingGuide={...event,until:performance.now()+5000};return;
+      case 'assistantStop':stopGuide();return;
       case 'settings': applySettings(event.settings); return;
       case 'hidden': applyHidden(event.hidden); return;
       case 'agent':
         if(agentPresence!==event.presence||agentActive!==event.active)pendingPresence=true;agentPresence=event.presence;agentActive=event.active;
-        agentCard=event.card;if(event.presence!=='NeedsYou'){if(pendingAgent?.kind==='NeedsYou')pendingAgent=null;if(capri.pointing&&!capri.busy&&!capri.act)capri.stopPointing();}
+        agentCard=event.card;if(event.presence!=='NeedsYou'){if(pendingAgent?.kind==='NeedsYou')pendingAgent=null;if(capri.pointing&&!guideActive&&!capri.busy&&!capri.act)capri.stopPointing();}
         agentCaption.textContent=event.presence==='Thinking'?`${event.caption} · Thinking (15s+)`:event.caption;agentCaption.hidden=!event.caption||fullscreen||preferences.paused;return;
       case 'agentReaction':pendingAgent={kind:event.kind,until:performance.now()+5000};return;
       case 'desktop': desktop=event.desktop;capri.setWindows(event.desktop); return;

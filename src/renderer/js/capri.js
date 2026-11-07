@@ -1792,14 +1792,14 @@ export class Capri {
 
   // Go and point at `rect`, and keep pointing (a dashed line from her finger, brackets, `label`)
   // until stopPointing(). Resolves once she's there with her arm out.
-  async pointAt(rect, { label = '' } = {}) {
-    if (this.stowed) return false;
+  async pointAt(rect, { label = '', isCurrent = () => true } = {}) {
+    if (this.stowed || !isCurrent()) return false;
     this.stopPointing();
     const spot = this.spotNear(rect);
     if (this.stance !== 'stand' || Math.hypot(spot.x - this.pos.x, spot.y - this.pos.y) > 140) {
       await this.teleport({ x: spot.x, y: spot.y }, { face: spot.face });
     }
-    if (this.stowed || this.hidden) return false;
+    if (this.stowed || this.hidden || !isCurrent()) return false;
     const aim = this.aimPoint(rect);
     const dir = aim.x < this.pos.x ? -1 : 1;
     const side = this.armToward(dir);
@@ -1810,7 +1810,9 @@ export class Capri {
     };
     this.pointing = { rect, aim, dir, side, reach, label, pointer: null };
     this.base = this.restBase();
+    const ownedPointing = this.pointing;
     await this.perform('point', dir, { reach });
+    if (!isCurrent()) { if (this.pointing === ownedPointing) this.stopPointing(); return false; }
     if (this.pointing && !this.pointing.pointer) this.onCue('lock'); // the act was cut short
     return true;
   }

@@ -22,3 +22,10 @@ await mkdir('dist/renderer/panel', { recursive: true });
 await cp('src/renderer/panel/index.html', 'dist/renderer/panel/index.html');
 await cp('src/renderer/panel/style.css', 'dist/renderer/panel/style.css');
 await build({ entryPoints: ['src/renderer/panel/panel.ts'], outfile: 'dist/renderer/panel/panel.js', bundle: true, platform: 'browser', target: 'chrome130' });
+
+await build({entryPoints:['src/preload/assistant.ts'],outfile:'dist/preload/assistant.cjs',bundle:true,platform:'node',external:['electron']});
+await mkdir('dist/renderer/assistant',{recursive:true});
+await cp('src/renderer/assistant/index.html','dist/renderer/assistant/index.html');
+await cp('src/renderer/assistant/style.css','dist/renderer/assistant/style.css');
+await build({entryPoints:['src/renderer/assistant/assistant.ts'],outfile:'dist/renderer/assistant/assistant.js',bundle:true,platform:'browser',target:'chrome130'});
+await cp('src/main/assistant/assistant-controls.ps1','dist/main/assistant-controls.ps1');

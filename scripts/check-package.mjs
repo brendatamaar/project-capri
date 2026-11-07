@@ -19,3 +19,16 @@ for(const file of ['dist/preload/panel.cjs','dist/renderer/panel/index.html','di
 const panel=asar.extractFile(archive,path.normalize('dist/renderer/panel/index.html')).toString();
 if(!panel.includes("default-src 'none'")||!panel.includes("script-src 'self'"))throw new Error('Packaged panel CSP missing');
 console.log('PACKAGE_AGENT_OK: board/preload present; no connection secrets or audit data bundled.');
+for (const name of ['SOUL','USER','MEMORY']) {
+  const relative = path.join('assistant','defaults',`${name}.md`);
+  if (!asar.extractFile(archive,relative).equals(readFileSync(relative))) throw new Error(`Bundled context mismatch: ${name}`);
+}
+if (entries.some(file => /\/(?:SOUL|USER|MEMORY)\.md$/.test(file) && !file.startsWith('/assistant/defaults/'))) throw new Error('Personal assistant context bundled');
+console.log('PACKAGE_CONTEXT_OK: bundled defaults only.');
+for(const file of ['dist/preload/assistant.cjs','dist/renderer/assistant/index.html','dist/renderer/assistant/assistant.js','dist/renderer/assistant/style.css'])asar.extractFile(archive,path.normalize(file));
+const assistant=asar.extractFile(archive,path.normalize('dist/renderer/assistant/index.html')).toString();
+if(!assistant.includes("default-src 'none'")||!assistant.includes("script-src 'self'"))throw new Error('Assistant CSP missing');
+const controls=path.join('release/win-unpacked/resources/app.asar.unpacked/dist/main/assistant-controls.ps1');
+if(!readFileSync(controls).equals(readFileSync('src/main/assistant/assistant-controls.ps1')))throw new Error('Native controls mismatch');
+if(entries.some(file=>/\/(assistant-provider\.bin|assistant\.sqlite(?:-wal|-shm)?|notes)(?:\/|$)/i.test(file)))throw new Error('Personal assistant data bundled');
+console.log('PACKAGE_ASSISTANT_OK: isolated UI, fixed native helper and no personal data.');

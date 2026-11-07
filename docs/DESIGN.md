@@ -1,9 +1,9 @@
 # Capri Companion — Model Functional Effect design
 Profile: service
 
-This document covers phase 0, the standalone overlay companion, and phase 1, which connects her to T3Code threads and approvals. It builds on `PRD.md`. Later phases add their own design files under `docs/design/`.
+This document covers phase 0, the standalone overlay companion, phase 1, which connects her to T3Code threads and approvals, and the initial Phase 2 context-file boundary. It builds on `PRD.md`.
 
-Verified against T3Code 0.1.7 source at commit `6577c6b`, mochiiwuff/capri-desktop `cb33e87`, and TheAgencyMGE/capri-companion `c094ec1`. Nothing here has run against a live T3Code server yet, so milestone M7 in `PLAN.md` must pass before the approval work starts.
+Verified against T3Code 0.1.7 source at commit `6577c6b`, mochiiwuff/capri-desktop `cb33e87`, and TheAgencyMGE/capri-companion `c094ec1`. M7 verified monitoring transport against an isolated T3Code server. Live provider approval gates remain unverified. The approved monitoring fallback at the end of this document defines the shipped scope; the approval-capable design below remains deferred.
 
 ## Phase 0: Overlay companion
 
@@ -701,8 +701,9 @@ Contract suites: `T3Auth`, `T3Rpc`, `SecureStore`, `AuditLog`, `Scheduler`, and 
 ## Approved Phase 1 monitoring fallback
 
 The user authorized the monitoring fallback after M7 transport verification. All
-providers remain ThreadOnly until an explicit live provider gate passes. Production
-requests orchestration:read only; no dispatchCommand RPC or decision IPC exists.
+providers remain ThreadOnly for approvals until an explicit live provider gate passes.
+The Phase 1 monitoring adapter requests orchestration:read only and exposes no
+dispatchCommand RPC or decision IPC. Phase 2 operations use a separate gated adapter.
 The board displays pending summaries and, when available, exact request details,
 and opens the correct thread for decisions in T3Code. Unknown approval send
 outcomes therefore cannot occur in this release. This narrows the planned approval
@@ -799,8 +800,7 @@ fallback, exact text, UTF-8/NUL/size boundaries, link rejection, no writes, miss
 defaults, and a property for deterministic text preservation. Small-model context
 shortening and user-visible fallback status belong to the provider/UI milestones.
 
-
-## Phase 2 assistant service
+## Phase 2 M15–M18: assistant service
 
 M15 adds a main-only provider port for Ollama NDJSON and OpenAI-compatible Chat
 Completions SSE. Explicit endpoint/model configuration is required; default is
@@ -864,3 +864,33 @@ external messaging and approval-response RPCs are never exposed. Sending a confi
 prompt to the user's coding thread is the Phase 2 start/steering feature, not a
 messaging tool for contacting other people. Actual provider support remains subject
 to manual acceptance; automated tests never create agent turns.
+
+M18 UI is a separate sandboxed/context-isolated strict-CSP window and preload,
+opened from the tray. Main validates the owning main frame and every IPC action;
+only the assistant window receives its explicit view. Model/request/result text is
+rendered through textContent. API keys and operating tokens never appear in views.
+Provider setup does not send a request; only a user chat submission does. Slash
+commands stay offline even when a provider is configured. Settings, context sources,
+cloud disclosure, storage failures, exact approval payloads and Stop are visible.
+An audit decision is saved before execution; audit failure blocks the action.
+Transcript deletion has a separate UI confirmation. Forget disables a provider in
+memory even if removal of its encrypted file fails, with a warning about restart.
+
+A live agent request, fullscreen, pause/stow or hiding the assistant injects a
+blocked/hidden Ui input and cancels pending or active work. Agent-board state
+subscriptions make this immediate; new turns cannot bypass a pending approval.
+Guided pointing uses normalized coordinates on the current overlay monitor,
+queues for at most five seconds, yields to signatures and uses a look gesture for
+reduced motion. Stop invalidates a generation predicate checked before/after an
+asynchronous teleport/point; stale guides cannot resurrect or cancel a newer guide.
+No frame-loop/exposure timing or art changes are made. Existing 30/60 fps tests
+remain required and run as part of overlay smoke.
+
+Phase 2 implementation completion is distinct from Windows/live-provider acceptance.
+docs/PHASE2_ACCEPTANCE.md lists usage, persistence/disclosure details and the remaining
+native/real-provider checks. No automated test runs a real agent turn. Packaging
+includes only default context and fixed helpers, rejecting runtime DBs, notes and
+credentials; helper and placeholder bytes/notices are checked. New assistant smoke
+also runs the built ASAR on host Electron to check installed archive loading,
+SQLite/approved-memory integration and IPC/rendering, without claiming Windows
+runtime success from a Linux host. Phase 3 is not started.
