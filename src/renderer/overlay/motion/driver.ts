@@ -69,5 +69,6 @@ function drawFace(canvas: HTMLCanvasElement,capri: any,anchor: NonNullable<ArtDe
     ctx.beginPath();ctx.ellipse(width*x+gazeX*width*0.04,height*0.4+gazeY*height*0.04,width*0.07,eyeHeight,0,0,Math.PI*2);ctx.fill();
   }
   ctx.strokeStyle='#daa84b';ctx.lineWidth=Math.max(1,scale*2);ctx.beginPath();ctx.moveTo(width*0.35,height*0.72);
+  if(capri.audioLevel>0.02){ctx.ellipse(width*0.5,height*0.73,width*0.12,height*(0.02+capri.audioLevel*0.12),0,0,Math.PI*2);ctx.fill();return;}
   ctx.quadraticCurveTo(width*0.5,height*(0.72+(params.mouthSmile??0.2)*0.15),width*0.65,height*0.72);ctx.stroke();
 }

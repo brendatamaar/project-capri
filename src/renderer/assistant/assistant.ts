@@ -1,3 +1,4 @@
+import './media';
 import type {AssistantHost,AssistantView} from '../../shared/assistant';
 declare global{interface Window{assistant:AssistantHost}}
 const host=window.assistant,$=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;

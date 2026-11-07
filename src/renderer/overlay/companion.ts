@@ -131,6 +131,7 @@ async function boot() {
   window.addEventListener('beforeunload',()=>clearInterval(agentTimer));
   const receive = (event: OverlayEvent) => {
     switch (event.tag) {
+      case 'audioLevel':capri.audioLevel=fullscreen||preferences.paused?0:event.level;return;
       case 'assistantPoint':stopGuide();pendingGuide={...event,until:performance.now()+5000};return;
       case 'assistantStop':stopGuide();return;
       case 'settings': applySettings(event.settings); return;
