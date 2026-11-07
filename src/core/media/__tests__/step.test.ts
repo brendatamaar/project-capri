@@ -1,0 +1,11 @@
+import {describe,it,expect} from 'vitest';
+import fc from 'fast-check';
+import {initial,step,type Input} from '../step';
+describe('media lifecycle',()=>{
+ it('requires eligibility and user input for capture',()=>{expect(step(initial(),{tag:'Look',runId:1}).commands).toEqual([]);const s=step(initial(),{tag:'Ui',eligible:true}).state;expect(step(s,{tag:'Look',runId:1}).commands).toEqual([{tag:'Capture',runId:1}]);});
+ it('ignores stale results and cancels when blocked',()=>{let s=step(initial(),{tag:'Ui',eligible:true}).state;s=step(s,{tag:'Listen',runId:4}).state;expect(step(s,{tag:'Done',runId:3}).state).toEqual(s);const r=step(s,{tag:'Ui',eligible:false});expect(r.state.phase).toBe('Idle');expect(r.state.watching).toBe(false);expect(r.commands).toContainEqual({tag:'Cancel'});});
+ it('revoking watching cancels an in-flight capture',()=>{let s=step(initial(),{tag:'Ui',eligible:true}).state;s=step(s,{tag:'Watch',enabled:true}).state;s=step(s,{tag:'Tick',runId:1}).state;expect(step(s,{tag:'Watch',enabled:false})).toMatchObject({state:{phase:'Idle',runId:null,watching:false},commands:[{tag:'Cancel'}]});});
+ it('never captures from ticks without explicit watching consent',()=>{fc.assert(fc.property(fc.array(fc.nat()),ids=>{let s=step(initial(),{tag:'Ui',eligible:true}).state;for(const runId of ids){const r=step(s,{tag:'Tick',runId});expect(r.commands).toEqual([]);s=r.state;}}));});
+ it('blocking/stop invalidates every generation and stops watching',()=>{fc.assert(fc.property(fc.boolean(),fc.nat(),(watch,runId)=>{let s=step(initial(),{tag:'Ui',eligible:true}).state;s=step(s,watch?{tag:'Watch',enabled:true}:{tag:'Listen',runId}).state;const r=step(s,{tag:'Stop'});expect(r.state).toMatchObject({phase:'Idle',watching:false,runId:null});expect(r.commands).toEqual([{tag:'Cancel'}]);expect(step(r.state,{tag:'Done',runId}).commands).toEqual([]);}));});
+});
+it('arbitrary events cannot emit IO while ineligible and stale completions are inert',()=>{fc.assert(fc.property(fc.array(fc.record({tag:fc.constantFrom('Listen','Look','Speak','Tick','Recorded','Done'),runId:fc.nat()})),events=>{for(const event of events){const r=step(initial(),event as Input);expect(r.commands).toEqual([]);expect(r.state).toEqual(initial());}}));});

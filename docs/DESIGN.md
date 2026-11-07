@@ -1,7 +1,7 @@
 # Capri Companion — Model Functional Effect design
 Profile: service
 
-This document covers phase 0, the standalone overlay companion, phase 1, which connects her to T3Code threads and approvals, and the initial Phase 2 context-file boundary. It builds on `PRD.md`.
+This document covers phase 0, the standalone overlay companion, phase 1, which connects her to T3Code threads and approvals, Phase 2 assistant services, and Phase 3 voice/screen boundaries. It builds on `PRD.md`.
 
 Verified against T3Code 0.1.7 source at commit `6577c6b`, mochiiwuff/capri-desktop `cb33e87`, and TheAgencyMGE/capri-companion `c094ec1`. M7 verified monitoring transport against an isolated T3Code server. Live provider approval gates remain unverified. The approved monitoring fallback at the end of this document defines the shipped scope; the approval-capable design below remains deferred.
 
@@ -893,4 +893,68 @@ includes only default context and fixed helpers, rejecting runtime DBs, notes an
 credentials; helper and placeholder bytes/notices are checked. New assistant smoke
 also runs the built ASAR on host Electron to check installed archive loading,
 SQLite/approved-memory integration and IPC/rendering, without claiming Windows
-runtime success from a Linux host. Phase 3 is not started.
+runtime success from a Linux host. At that checkpoint Phase 3 was not started.
+
+## Phase 3: voice and screen
+
+Phase 3 adds a separate media lifecycle; it does not add tools to the assistant's
+closed action registry. `src/core/media/step.ts` is pure, with tagged State, Input
+and Command types. UI eligibility, user Listen/Look/Speak, explicit Watch consent,
+run-scoped Recorded/Done and injected Tick inputs drive Idle, Recording,
+Transcribing, Capturing and Speaking. A busy operation ignores new starts;
+stale results cannot change it. Stop or ineligibility cancels work and watching. Revoking Watch cancels an
+in-flight capture.
+Timers and monotonic run IDs are supplied by the main interpreter. Recording is
+bounded to 30 seconds (4-second chunks in wake mode), requests to 45 seconds,
+and playback to two minutes. There is no retry of audio or screen requests.
+
+`src/main/media/service.ts` interprets these commands. A dedicated, nonpersistent
+assistant session denies outbound renderer networking and permits only microphone
+media permission, only for that window while eligible and Recording. Camera and
+display-stream permissions remain denied. Sandboxing, context isolation, sender/
+main-frame checks, no Node integration and strict CSP remain. Validated typed IPC
+caps mono 16 kHz PCM at 480,000 samples and levels at [0,1]. The renderer stops
+tracks and its AudioContext on cancel, blur, unload or generation replacement.
+A visible microphone indicator accompanies recording; the user can finish or Stop.
+Wake mode starts only with Listen, sends each four-second chunk for transcription,
+and filters the resulting text for the configured phrase. It is not an offline
+keyword detector: all recorded chunks reach the selected transcription endpoint.
+A detected phrase only fills the review area, never sends chat or approves actions.
+
+Typed mode disables both microphone and speech. Local mode confines speech and
+transcription URLs to loopback. Custom/cloud compatible endpoints require HTTPS
+and explicit disclosure when remote; local proxies remain the user's responsibility.
+Speech uses POST audio/speech (WAV); transcription uses multipart audio/transcriptions
+with a mono PCM WAV. Kokoro and Parakeet run separately: no binary, model, executable
+launcher or automatic download is included. Designed voice IDs are supported; no
+voice cloning or reference audio upload is offered. One credential is used for the
+two explicitly configured voice endpoints, separately from assistant model keys.
+Settings/keys use serialized atomic encrypted storage in media-provider.bin, with
+memory-only fallback when OS encryption is unavailable. Keys never enter views.
+HTTP redirects are rejected; bounded reads cap audio at 16 MiB, transcripts at
+100 KB, and vision responses at 200 KB. Failures expose generic messages only.
+
+Read last answer is explicit and respects quiet mode; there is no automatic TTS.
+The renderer decodes actual audio and measures RMS at at most 10 updates/second.
+Run-scoped levels animate the optional generic live-face mouth and an audio meter.
+Packs without faceAnchor keep their artwork unchanged and show the meter. Signature
+acting keeps priority and suppresses the generic face as before. No exposure sheet
+or render clock changed; hidden/paused/quiet states cancel playback and reset levels.
+
+Screen selection lists display metadata without capture. A user Look or an explicitly
+enabled 30-second watch requests a bounded desktopCapturer thumbnail of the selected
+display. Electron enumerates thumbnails for all displays; only the selected one is
+retained or eligible for upload, and the UI discloses this. Watching defaults off, is not persisted and refreshes only the local preview.
+An invalid/unplugged display fails closed. Hidden/fullscreen/stowed/paused/pending
+agent approval clears captures/review and cancels all media work. Stop prevents late
+results. Images remain only in memory and are neither logged nor stored in SQLite.
+A separate user button sends exactly the current preview to the configured assistant
+vision model, using compatible chat image_url or Ollama images. Existing cloud
+consent applies, with a disclosure at the button. Descriptions are displayed as
+untrusted text, never passed into action execution. Watch ticks cannot upload.
+Transcript copying fills the draft only; Send and action confirmations remain separate.
+
+Production capture, microphone hardware, real Kokoro/Parakeet/vision compatibility,
+and Windows audio/DPI behavior require manual checks in PHASE3_ACCEPTANCE.md.
+Synthetic Electron smoke uses the original placeholder as a capture fixture, not
+live desktop contents. Phase 4 remains unstarted.

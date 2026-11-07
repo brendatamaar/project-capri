@@ -38,3 +38,17 @@ M7 copies unchanged orchestrationV2.ts and its transitive contract imports into 
 Runtime: Electron (MIT, with Chromium/Node notices supplied by Electron), Zod (MIT), Effect (MIT).
 Build/test: TypeScript (Apache-2.0), esbuild (MIT), Vitest (MIT), fast-check (MIT), electron-builder (MIT), @electron/asar (MIT, archive verification), @types/node (MIT).
 Dependency versions are locked in package-lock.json; dependency license files stay with their packages.
+
+## Optional Phase 3 external services (not bundled)
+
+Capri's new HTTP adapters are original implementation; no server code or model
+weights were copied. Kokoro-FastAPI (https://github.com/remsky/Kokoro-FastAPI,
+Apache-2.0) and achetronic/parakeet (https://github.com/achetronic/parakeet,
+Apache-2.0) are independently installed optional services. Users retain their notices
+when installing them. Model cards checked 2026-11-07: hexgrad/Kokoro-82M
+(https://huggingface.co/hexgrad/Kokoro-82M) declares Apache-2.0; NVIDIA
+parakeet-tdt-0.6b-v3 (https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
+declares CC-BY-4.0. Model attribution: NVIDIA, Parakeet TDT 0.6B v3, unchanged
+external model; hexgrad, Kokoro-82M, unchanged external model. No model, custom
+voice, copied voice, or show-derived asset is distributed with Capri. Verify terms
+for the exact externally installed version and any additional voice assets.
