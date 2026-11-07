@@ -30,5 +30,9 @@ const assistant=asar.extractFile(archive,path.normalize('dist/renderer/assistant
 if(!assistant.includes("default-src 'none'")||!assistant.includes("script-src 'self'"))throw new Error('Assistant CSP missing');
 const controls=path.join('release/win-unpacked/resources/app.asar.unpacked/dist/main/assistant-controls.ps1');
 if(!readFileSync(controls).equals(readFileSync('src/main/assistant/assistant-controls.ps1')))throw new Error('Native controls mismatch');
-if(entries.some(file=>/\/(media-provider\.bin|assistant-provider\.bin|assistant\.sqlite(?:-wal|-shm)?|notes)(?:\/|$)/i.test(file)))throw new Error('Personal assistant data bundled');
+if(entries.some(file=>/\/(fun-state\.json|media-provider\.bin|assistant-provider\.bin|assistant\.sqlite(?:-wal|-shm)?|notes)(?:\/|$)/i.test(file)))throw new Error('Personal assistant data bundled');
 console.log('PACKAGE_ASSISTANT_OK: isolated UI, fixed native helper and no personal data.');
+
+const inputHelper=path.join('release/win-unpacked/resources/app.asar.unpacked/dist/main/input-jobs.ps1');
+if(!readFileSync(inputHelper).equals(readFileSync('src/main/fun/input-jobs.ps1')))throw new Error('Input helper mismatch');
+console.log('PACKAGE_FUN_OK: fixed input helper and no bond data.');

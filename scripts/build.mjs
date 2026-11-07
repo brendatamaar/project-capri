@@ -29,3 +29,5 @@ await cp('src/renderer/assistant/index.html','dist/renderer/assistant/index.html
 await cp('src/renderer/assistant/style.css','dist/renderer/assistant/style.css');
 await build({entryPoints:['src/renderer/assistant/assistant.ts'],outfile:'dist/renderer/assistant/assistant.js',bundle:true,platform:'browser',target:'chrome130'});
 await cp('src/main/assistant/assistant-controls.ps1','dist/main/assistant-controls.ps1');
+
+await cp('src/main/fun/input-jobs.ps1','dist/main/input-jobs.ps1');

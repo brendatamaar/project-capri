@@ -1,6 +1,6 @@
 {
   "name": "capri-companion",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "description": "Non-commercial Capri desktop and T3Code monitoring companion",
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -48,7 +48,8 @@
     },
     "asarUnpack": [
       "dist/main/read-only.ps1",
-      "dist/main/assistant-controls.ps1"
+      "dist/main/assistant-controls.ps1",
+      "dist/main/input-jobs.ps1"
     ],
     "files": [
       "dist/**",

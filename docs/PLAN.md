@@ -2,9 +2,9 @@
 
 This plan builds the overlay companion first, then connects her to coding agents. `PRD.md` owns product scope, `DESIGN.md` owns behavior, and this file owns order and progress.
 
-Current milestone: **Phase 3 voice and screen implementation and automated verification complete; manual acceptance pending.
-User authorized completing Phase 3 on 2026-11-07. Stop before Phase 4.
-Earlier Windows/live-provider acceptance and the full-week trial remain pending.**
+Current milestone: **Phase 4 implementation and automated verification complete; manual acceptance pending.
+User authorized completing Phase 4 on 2026-11-07. Stop before the Later backlog.
+Earlier manual Windows/provider/model checks and full-week trial remain pending.**
 
 Repository audit (2026-11-06): work began from clean main at `71f7688`, containing M0–M6. The current request supersedes the earlier Phase 1 stop. The implemented monitoring fallback and evidence are recorded below; full acceptance is still pending.
 
@@ -489,7 +489,7 @@ Phase 3 verification (2026-11-07):
   exposure sheets, private art or new runtime dependency was added. No real
   provider request or agent turn ran. No files were staged or committed.
 
-Phase 4 remains unstarted. External model servers/weights are not bundled or
+At the Phase 3 checkpoint, Phase 4 remained unstarted. External model servers/weights are not bundled or
 launched by Capri. Wake detection uses bounded transcription chunks, not an
 on-device keyword detector. Watching updates the local preview only; sending it
 to the configured vision model requires a separate click. The placeholder retains
@@ -497,10 +497,67 @@ its original face-free artwork; the audio meter works without a faceAnchor.
 
 ## Phase 4: Fun extras
 
-- [ ] Add bond stages, moods, and optional jealousy.
-- [ ] Add wandering, cursor riding, music, dance, and the mini player.
-- [ ] Add clones and chaos as opt-in features.
-- [ ] Add approved mouse and keyboard jobs with a stop key.
+### M23: Bond and moods
+
+- [x] Opt-in five-stage bond, bounded daily progress and atomic persistence/reset.
+- [x] Temporary moods, playful jealousy, opt-in check-ins and cooldowns.
+- [x] Pure transitions and properties for bounds, no penalties and approval priority.
+
+### M24: Movement, music and visual extras
+
+- [x] Retain window wandering with approval gating; add smooth visual cursor riding.
+- [x] Add Windows-session mini player and confirmation-based music controls.
+- [x] Add procedural dance, two click-through visual clones and bounded chaos.
+- [x] All extras opt-in, with quiet/reduced-motion/signature/approval suppression.
+
+### M25: Approved input jobs
+
+- [x] Strict bounded mouse/navigation schemas and opaque target binding.
+- [x] Use assistant confirmation/audit lifecycle; never auto-run or retry.
+- [x] Fixed Windows helper, identity/geometry/focus checks and global stop key.
+- [x] Parser/executor contracts and input-job approval invariant property.
+
+### M26: Phase 4 verification
+
+- [x] Finish check, full/core/contracts and Electron regression verification.
+- [x] Verify alpha.4 Windows unpacked archive and installed-ASAR smoke.
+- [x] Update design, usage and honest native Windows acceptance checklist.
+- [ ] Native Windows input, stop latency, media-session, DPI and daily-use checks in
+  docs/PHASE4_ACCEPTANCE.md (not inferred from fixture/Linux tests).
+
+Phase 4 verification (2026-11-07):
+
+- npm run check passes under Node 22.23.4. Full suite: 177 Vitest tests plus
+  5 unchanged hook tests. Dedicated core (58) and contracts (99) pass. The new
+  core has no Node/Electron/Effect/DOM/timer/random/logging imports or effects.
+- Full Linux Electron e2e passes: original-placeholder/art cases, overlay/live-face
+  30/60 fps checks, board and assistant/media/fun integration. Fun smoke verifies
+  default opt-ins, two click-through clones, dance/ride/chaos gating, reduced motion,
+  approval suppression and disabling extras. No real native input or agent turn ran.
+- Alpha.4 Windows unpacked cross-build and all archive checks pass with executable
+  resource editing/signing disabled. Original placeholder, notices and fixed helper
+  bytes match source; bond data and secrets are excluded. Final built-ASAR assistant/
+  media/fun smoke passes on host Electron. No installer or native Windows execution
+  is claimed. Xvfb/shared libraries and explicit test-only no-sandbox/software-GL
+  flags were required; production sandbox/context isolation remain enabled.
+- Initial packaged fun smoke exposed an asynchronous fixture race with leftover
+  pointing state and IPC delivery. Reset fixture state and explicit bounded UI
+  waits fixed it; the rebuilt archive passes, including reduced-motion suppression.
+- Native helper execution/stop latency, Win32/UWP focus/DPI variations, actual media
+  sessions, visual quality and daily resource use remain manual checks. This Linux
+  host has no PowerShell/C# native runtime, so no native helper compilation or
+  Windows safety acceptance is claimed from TypeScript/fixture tests.
+- DESIGN.md and PHASE4_ACCEPTANCE.md describe supported behavior, failures and limits.
+  Existing notices remain intact; no additional third-party code/assets, vendor
+  source, exposure data, runtime dependency, private art or secret was added.
+  Nothing is staged or committed. The Later backlog remains untouched.
+
+Native input is intentionally constrained to trusted Calculator/Notepad windows,
+1–20 Move/Click/navigation-key steps. No free typing, modifiers, Enter, arbitrary
+shortcuts, Discord automation, background exploration, shell or executable tool is
+enabled. Mini player lives in the Assistant; dance uses playback state, not beat
+analysis. Clones are visual echoes, never agents. Product constraints take priority
+over broader reference inventory entries; those capabilities are not claimed.
 
 ## Later
 
