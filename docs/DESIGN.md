@@ -760,3 +760,21 @@ Thinking and NeedsYou use the existing work mode; disconnected status uses sleep
 Unpaired startup leaves the standalone character alone, and explicit user sleep
 is preserved while agents merely work. Leaving the agent connection restores only
 the mode previously applied by the agent layer.
+
+## Phase 2 assistant lifecycle
+
+M16 transitions (pure src/core/assistant, service profile): Submit with a newer
+injected runId enters Generating and emits Generate; chunks must match run/attempt
+and reset an injected stall timer revision. Completed output enters Idle or
+AwaitingDecision with one proposal. A transient failure before any output retries
+at most twice through RetryWait/Schedule; partial output never retries. Stalls and
+hard deadlines abort generation. Stop aborts and clears pending work. Stale results
+and timers do nothing. A decision can emit Execute only in the same step as a user
+Approve, for the matching run, visible and unblocked UI; Deny/timeout/hide cancel
+pending proposals. Every action asks, including reads and memory; no document/model
+text can approve itself. Execute has no retry. Uncertain/cancelled effects are
+reported honestly; Stop cannot undo an already committed filesystem write or a
+T3 command already accepted remotely. There is no shell/program/purchase/messaging,
+password, screen-capture or input-synthesis action in the closed action union.
+
+Reminder due detection is a separate pure reducer with injected time and generation guards.
