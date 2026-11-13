@@ -1219,6 +1219,9 @@ export class FxLayer {
   draw(it, t, dt, now) {
     const { ctx } = this;
     switch (it.type) {
+      case 'paint': // self-drawing items (overlay/antics.ts)
+        it.paint(ctx, t, dt, now);
+        break;
       case 'shard': {
         it.x += it.vx * dt;
         it.y += it.vy * dt;

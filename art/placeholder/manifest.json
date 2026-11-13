@@ -5,5 +5,9 @@
   "sprite": "sprite.png",
   "faces": {},
   "cutins": {},
-  "intro": {}
+  "intro": {},
+  "views": {
+    "side": "side.png",
+    "back": "back.png"
+  }
 }

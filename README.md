@@ -18,6 +18,9 @@ npm run test:e2e
 npm run dist
 ```
 
+`npm run showcase` opens a gallery of everything the character can do on a pretend desktop
+(also in the tray as **Showcase gallery...**). The tray's **Antics** checkbox turns her random antics on or off.
+
 `npm run dev` starts the transparent desktop companion with Pip, an original
 teal-and-brass robot. Right-click the body or tray for **Agent board**, settings,
 teleport/sleep, showcase, monitors, and quit. Ctrl+Alt+C toggles compact form;

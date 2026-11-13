@@ -51,7 +51,7 @@ export const CLIPS: Clip[] = [
   { name: 'point_up', duration: 1.8, source: 'interpretation', tags: ['gesture'], keys: [k(0, {}), k(0.25, { armRRaise: 0.8, armRWave: -0.4, gazeY: -0.6, eyeWide: 0.4 }), k(0.75, { armRRaise: 0.8, armRWave: -0.4 }), k(1, {})] },
 
   // ---- reactions / emotes
-  { name: 'giggle', duration: 1.6, source: 'interpretation', tags: ['reaction', 'emote'], keys: [k(0, {}), ...osc(5, 4, 'bodyY', { squint: 0.8, mouthOpen: 0.45, mouthSmile: 1 }), k(1, {})] },
+  { name: 'giggle', duration: 1.6, source: 'interpretation', tags: ['reaction', 'emote'], keys: [k(0, {}), k(0.15, { bodyY: 2, headPitch: 0.12, squint: 0.8, mouthOpen: 0.45, mouthSmile: 1, armLRaise: 0.15, armRRaise: 0.15 }), k(0.3, { bodyY: -2, headPitch: -0.05, squint: 0.8, mouthOpen: 0.45, mouthSmile: 1, armLRaise: 0.15, armRRaise: 0.15 }), k(0.45, { bodyY: 2, headPitch: 0.12, squint: 0.8, mouthOpen: 0.45, mouthSmile: 1, armLRaise: 0.15, armRRaise: 0.15 }), k(0.6, { bodyY: -2, headPitch: -0.05, squint: 0.8, mouthOpen: 0.45, mouthSmile: 1, armLRaise: 0.15, armRRaise: 0.15 }), k(0.78, { bodyY: 1, headPitch: 0.08, squint: 0.7, mouthOpen: 0.3, mouthSmile: 1 }), k(1, {})] },
   { name: 'surprise_flinch', duration: 1.4, source: 'interpretation', tags: ['reaction'], keys: [k(0, {}), k(0.1, { eyeWide: 1, mouthOpen: 0.7, mouthSmile: 0, headPitch: -0.25, hairWind: 1, glitch: 0.6, float: 0.9, manyEyes: 0.7 }), k(0.6, { eyeWide: 0.8, mouthOpen: 0.4 }), k(1, {})] },
   { name: 'eye_roll', duration: 1.6, source: 'interpretation', tags: ['reaction', 'emote'], keys: [k(0, {}), k(0.2, { gazeX: -0.7, gazeY: -0.7, squint: 0.3 }), k(0.45, { gazeX: 0, gazeY: -1, squint: 0.3 }), k(0.7, { gazeX: 0.7, gazeY: -0.6, mouthSmile: -0.4, headRoll: -0.1 }), k(1, {})] },
   { name: 'pout', duration: 1.8, source: 'interpretation', tags: ['reaction', 'emote'], mirror: true, keys: [k(0, {}), k(0.3, { mouthSmile: -0.8, squint: 0.5, headRoll: -0.15, headYaw: 0.4, gazeX: 0.6 }), k(0.75, { mouthSmile: -0.8, squint: 0.5 }), k(1, {})] },
@@ -62,77 +62,5 @@ export const CLIPS: Clip[] = [
   { name: 'facepalm', duration: 2, source: 'interpretation', tags: ['emote', 'reaction'], keys: [k(0, {}), k(0.3, { armLRaise: 0.62, headPitch: 0.4, blinkL: 1, blinkR: 1, mouthSmile: -0.4 }), k(0.75, { armLRaise: 0.62, headPitch: 0.4, blinkL: 1, blinkR: 1 }), k(1, {})] },
   { name: 'drowsy_nod', duration: 3, source: 'interpretation', tags: ['idle'], keys: [k(0, {}), k(0.3, { headPitch: 0.5, squint: 0.8, sleep: 0.5 }), k(0.45, { headPitch: -0.1, eyeWide: 0.5, sleep: 0 }), k(1, {})] },
 ];
-
-export const REACTION_CLIPS: Record<'happy' | 'surprised' | 'annoyed' | 'curious' | 'wave' | 'nod', string[]> = {
-  happy: ['giggle', 'tilt_grin', 'wink', 'cheer', 'reveal_spread', 'smug', 'maniac_grin'],
-  surprised: ['surprise_flinch', 'double_take', 'many_eyes', 'blank_stare'],
-  annoyed: ['eye_roll', 'pout', 'facepalm', 'shake_no', 'menace'],
-  curious: ['curious_lean', 'tilt_grin'],
-  wave: ['wave_big', 'wave_small'],
-  nod: ['nod_slow'],
-};
-
-const MIRROR_KEYS = new Set<keyof Params>(['headYaw', 'gazeX', 'headRoll', 'bodyRot', 'bodyX', 'armRWave']);
-
-/** One playback of a clip with per-play variation (speed, amplitude, mirroring). */
-export class ClipInstance {
-  t = 0;
-  readonly duration: number;
-  constructor(readonly clip: Clip, private amp = 1, speed = 1, private mirrored = false) {
-    this.duration = clip.duration / speed;
-  }
-  static random(clip: Clip, rand: () => number, intensity = 1) {
-    return new ClipInstance(clip, (0.8 + rand() * 0.4) * Math.min(1.2, Math.max(0.3, intensity)), 0.85 + rand() * 0.3, !!clip.mirror && rand() < 0.5);
-  }
-  get done() { return this.t >= this.duration; }
-  /** Fade weight for blending the clip in/out of the base pose. */
-  get weight() { const u = this.t / this.duration; return Math.min(1, u / 0.12, (1 - u) / 0.12); }
-
-  /** Sample the clip; returns params to blend over the base pose. */
-  sample(dt: number): Pose {
-    this.t += dt;
-    const u = Math.min(1, this.t / this.duration);
-    const keys = this.clip.keys;
-    let i = 0;
-    while (i < keys.length - 2 && keys[i + 1].t < u) i++;
-    const a = keys[i], b = keys[Math.min(i + 1, keys.length - 1)];
-    const span = b.t - a.t || 1;
-    const x = Math.min(1, Math.max(0, (u - a.t) / span));
-    const xe = this.clip.ease === 'snap' ? Math.min(1, x / 0.15) : x;
-    const s = xe * xe * (3 - 2 * xe); // smoothstep between keys (snap: fast move, then hold)
-    const out: Pose = {};
-    const names = new Set([...Object.keys(a.pose), ...Object.keys(b.pose)]) as Set<keyof Params>;
-    for (const n of names) {
-      const va = a.pose[n], vb = b.pose[n];
-      // a param missing on one side fades to/from "no influence" via the weight below
-      let v = va !== undefined && vb !== undefined ? va + (vb - va) * s : (va ?? vb)!;
-      const presence = va !== undefined && vb !== undefined ? 1 : va !== undefined ? 1 - s : s;
-      const isEye = n === 'blinkL' || n === 'blinkR';
-      if (!isEye && n !== 'sleep') v *= this.amp;
-      if (this.mirrored && MIRROR_KEYS.has(n)) v = -v;
-      out[n] = v;
-      (out as Record<string, number>)[`__w_${n}`] = presence;
-    }
-    if (this.mirrored && ('blinkL' in out || 'blinkR' in out)) {
-      const l = out.blinkL, r = out.blinkR;
-      out.blinkL = r; out.blinkR = l;
-      const wl = (out as Record<string, number>).__w_blinkL, wr = (out as Record<string, number>).__w_blinkR;
-      (out as Record<string, number>).__w_blinkL = wr; (out as Record<string, number>).__w_blinkR = wl;
-    }
-    return out;
-  }
-}
-
-/** Blend a sampled clip pose over a base pose (weights handle fade in/out per param). */
-export function applyClip(base: Params, clipPose: Pose, weight: number): Params {
-  const out = { ...base };
-  for (const [key, v] of Object.entries(clipPose)) {
-    if (key.startsWith('__w_') || v === undefined) continue;
-    const n = key as keyof Params;
-    const w = weight * ((clipPose as Record<string, number>)[`__w_${n}`] ?? 1);
-    out[n] = base[n] + (v - base[n]) * w;
-  }
-  return out;
-}
 
 export const clipByName = (n: string) => CLIPS.find((c) => c.name === n);

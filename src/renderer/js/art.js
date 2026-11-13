@@ -5,9 +5,10 @@ export async function loadArtImages(descriptor, loadImage) {
       try { return [name, await loadImage(url)]; } catch { return null; }
     }),
   )).filter(Boolean));
-  const [image, faces, cutins, introFrames] = await Promise.all([
+  const [image, faces, cutins, introFrames, props, views, poses, expressions] = await Promise.all([
     loadImage(descriptor.sprite), loadOptional(descriptor.faces),
-    loadOptional(descriptor.cutins), loadOptional(descriptor.intro),
+    loadOptional(descriptor.cutins), loadOptional(descriptor.intro), loadOptional(descriptor.props),
+    loadOptional(descriptor.views ?? {}), loadOptional(descriptor.poses ?? {}), loadOptional(descriptor.expressions ?? {}),
   ]);
-  return { image, faces, cutins, intro: introFrames.grab ? introFrames : null };
+  return { image, faces, cutins, intro: introFrames.grab ? introFrames : null, props, views, poses, expressions };
 }

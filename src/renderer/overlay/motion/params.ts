@@ -1,4 +1,4 @@
-/** Every animatable degree of freedom of the rig. All are smoothed by the Animator. */
+/** Every animatable degree of freedom of the rig. Springs live in core/motion/spring.ts. */
 export interface Params {
   bodyX: number; bodyY: number; bodyRot: number; // px, px, rad
   breathe: number; // 0..1 chest/shoulder lift
@@ -41,35 +41,6 @@ export const NEUTRAL: Params = {
   armLRaise: 0, armRRaise: 0, armRWave: 0, hip: 0, hairWind: 0, float: 0.4, glitch: 0, sleep: 0, ringPulse: 0, armSpread: 0, manyEyes: 0,
   thighL: 0, kneeL: 0, foreL: 1, thighR: 0, kneeR: 0, foreR: 1, hipDrop: 0, lean: 0, hairStream: 0, happyEyes: 0, blankEyes: 0, clawScale: 1, zoom: 1, hairUp: 0, turn: 0, back: 0,
 };
-
-/** Per-parameter spring stiffness (higher = snappier). Blink and mouth are fast; body is slow. */
-const STIFFNESS: Partial<Record<keyof Params, number>> = {
-  blinkL: 900, blinkR: 900, mouthOpen: 600, eyeWide: 160, gazeX: 260, gazeY: 260, glitch: 400,
-  headYaw: 55, headPitch: 55, headRoll: 45, manyEyes: 120, armSpread: 70, hipDrop: 14, thighL: 26, thighR: 26, kneeL: 30, kneeR: 30, foreL: 30, foreR: 30, lean: 16, hairStream: 30, happyEyes: 160, blankEyes: 160, bodyX: 18, bodyY: 30, bodyRot: 22, zoom: 16, hairUp: 16, turn: 22, back: 30, armLRaise: 60, armRRaise: 60, armRWave: 120,
-};
-
-/**
- * Critically damped second-order smoothing for every param → no pops when states change,
- * and motion keeps momentum like a real body.
- */
-export class Animator {
-  readonly value: Params = { ...NEUTRAL };
-  private vel: Record<string, number> = {};
-  step(target: Params, dt: number, intensity = 1) {
-    const h = Math.min(Math.max(dt, 0), 0.25);
-    for (const k of Object.keys(target) as (keyof Params)[]) {
-      const kStiff = (STIFFNESS[k] ?? 40) * (k === 'blinkL' || k === 'blinkR' || k === 'mouthOpen' ? 1 : 0.6 + 0.4 * Math.min(1, intensity));
-      // exact solution of the critically damped spring → unconditionally stable at any frame rate
-      const w = Math.sqrt(kStiff);
-      const y = this.value[k] - target[k], v = this.vel[k] ?? 0;
-      const e = Math.exp(-w * h);
-      const tmp = (v + w * y) * h;
-      this.value[k] = target[k] + (y + tmp) * e;
-      this.vel[k] = (v - w * tmp) * e;
-    }
-  }
-  snap(p: Params) { Object.assign(this.value, p); this.vel = {}; }
-}
 
 /** Random natural blinking: 2–6 s intervals, occasional double blinks, blink on big gaze shifts. */
 export class Blinker {

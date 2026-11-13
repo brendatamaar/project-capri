@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseArtManifest, loadArtPack, serveArt } from '../../src/main/art';
 import { isArtPath } from '../../src/core/art-policy';
+import { EXPRESSION_NAMES, PROP_NAMES, VIEW_NAMES } from '../../src/shared/art';
 
 const manifest = { name: 'Test construct', version: 1, rig: 'mochi-v1', sprite: 'sprite.png' };
 const image = Buffer.from('original test image');
@@ -56,6 +57,106 @@ describe('ArtPacks', () => {
     expect(loaded.descriptor.faces).toEqual({ grin: 'art://pack/sprite.png' });
     expect(loaded.descriptor.cutins).toEqual({});
     expect(loaded.descriptor.intro).toEqual({});
+  });
+  test('rotation views are served when fitted, and a pack without them has none', async () => {
+    expect((await loadArtPack(roots, size)).descriptor.views).toEqual({});
+    await mkdir(path.join(roots.development, 'views'), { recursive: true });
+    await pack(roots.development, { views: { side: 'views/side.png', back: 'views/back.png' } });
+    await writeFile(path.join(roots.development, 'views/side.png'), image);
+    await writeFile(path.join(roots.development, 'views/back.png'), image);
+    const loaded = await loadArtPack(roots, size);
+    expect(loaded.descriptor.views).toEqual({ side: 'art://pack/views/side.png', back: 'art://pack/views/back.png' });
+    const response = await serveArt(loaded, 'art://pack/views/side.png');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('image/png');
+  });
+  test('missing, corrupt, and mis-sized views fall back without losing the pack', async () => {
+    const short = Buffer.from('a view that is not the full grid');
+    const sized = (bytes: Buffer) => bytes.equals(image) ? { width: 240, height: 420 } : bytes.equals(short) ? { width: 120, height: 210 } : null;
+    await pack(roots.development, { name: 'Partial', views: { side: 'missing.png', quarter: 'bad.png', back: 'short.png' } });
+    await writeFile(path.join(roots.development, 'bad.png'), 'corrupt');
+    await writeFile(path.join(roots.development, 'short.png'), short);
+    const loaded = await loadArtPack(roots, sized);
+    expect(loaded.descriptor.name).toBe('Partial');
+    expect(loaded.descriptor.views).toEqual({});
+  });
+  test('lounge poses are served when fitted, mis-sized ones are omitted, unknown keys fall through', async () => {
+    expect((await loadArtPack(roots, size)).descriptor.poses).toEqual({});
+    await mkdir(path.join(roots.development, 'poses'), { recursive: true });
+    await pack(roots.development, { poses: { loungeCoiled: 'poses/coiled.png', loungeSprawl: 'poses/sprawl.png' } });
+    await writeFile(path.join(roots.development, 'poses/coiled.png'), image);
+    await writeFile(path.join(roots.development, 'poses/sprawl.png'), image);
+    const loaded = await loadArtPack(roots, size);
+    expect(loaded.descriptor.poses).toEqual({ loungeCoiled: 'art://pack/poses/coiled.png', loungeSprawl: 'art://pack/poses/sprawl.png' });
+    expect((await serveArt(loaded, 'art://pack/poses/coiled.png')).status).toBe(200);
+    const short = Buffer.from('a pose that is not the full grid');
+    const sized = (bytes: Buffer) => bytes.equals(image) ? { width: 240, height: 420 } : bytes.equals(short) ? { width: 120, height: 210 } : null;
+    await pack(roots.development, { name: 'Partial', poses: { loungeCoiled: 'short.png', loungeSprawl: 'missing.png' } });
+    await writeFile(path.join(roots.development, 'short.png'), short);
+    const partial = await loadArtPack(roots, sized);
+    expect(partial.descriptor.name).toBe('Partial');
+    expect(partial.descriptor.poses).toEqual({});
+    await pack(roots.development, { poses: { loungeSideways: 'sprite.png' } });
+    expect((await loadArtPack(roots, size)).descriptor.source).toBe('placeholder');
+  });
+  test('a pack with an unknown view key falls through', async () => {
+    await pack(roots.development, { views: { left: 'sprite.png' } });
+    expect((await loadArtPack(roots, size)).descriptor.source).toBe('placeholder');
+  });
+  test('expressions need a faceAnchor and a neutral face, and only known names are accepted', async () => {
+    const anchor = { x: 96, y: 122, width: 40, height: 34 };
+    expect((await loadArtPack(roots, size)).descriptor.expressions).toEqual({});
+    await pack(roots.development, { faceAnchor: anchor, expressions: { neutral: 'sprite.png', joy: 'sprite.png', wink: 'missing.png' } });
+    const loaded = await loadArtPack(roots, size);
+    expect(loaded.descriptor.expressions).toEqual({ neutral: 'art://pack/sprite.png', joy: 'art://pack/sprite.png' });
+    // no anchor: nowhere to draw them
+    await pack(roots.development, { expressions: { neutral: 'sprite.png', joy: 'sprite.png' } });
+    expect((await loadArtPack(roots, size)).descriptor).toMatchObject({ source: 'development', expressions: {} });
+    // no neutral: nothing for the others to fall back to
+    await pack(roots.development, { faceAnchor: anchor, expressions: { joy: 'sprite.png' } });
+    expect((await loadArtPack(roots, size)).descriptor).toMatchObject({ source: 'development', expressions: {} });
+    // an unknown name rejects the manifest, like props and views
+    await pack(roots.development, { faceAnchor: anchor, expressions: { neutral: 'sprite.png', angry: 'sprite.png' } });
+    expect((await loadArtPack(roots, size)).descriptor.source).toBe('placeholder');
+    for (const name of EXPRESSION_NAMES) expect(() => parseArtManifest({ ...manifest, expressions: { [name]: 'a.png' } })).not.toThrow();
+  });
+  test('a valid props map is served, and a pack without one has none', async () => {
+    expect((await loadArtPack(roots, size)).descriptor.props).toEqual({});
+    await mkdir(path.join(roots.development, 'props'), { recursive: true });
+    await pack(roots.development, { props: { boombox: 'props/boombox.png', star: 'props/star.png' } });
+    await writeFile(path.join(roots.development, 'props/boombox.png'), image);
+    await writeFile(path.join(roots.development, 'props/star.png'), image);
+    const loaded = await loadArtPack(roots, size);
+    expect(loaded.descriptor.props).toEqual({ boombox: 'art://pack/props/boombox.png', star: 'art://pack/props/star.png' });
+    const response = await serveArt(loaded, 'art://pack/props/star.png');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('image/png');
+  });
+  test('missing and corrupt props are omitted without losing the pack', async () => {
+    await pack(roots.development, { name: 'Partial', props: { star: 'missing.png', heart: 'bad.png', note: 'sprite.png' } });
+    await writeFile(path.join(roots.development, 'bad.png'), 'corrupt');
+    const loaded = await loadArtPack(roots, size);
+    expect(loaded.descriptor.name).toBe('Partial');
+    expect(loaded.descriptor.props).toEqual({ note: 'art://pack/sprite.png' });
+  });
+  test('an oversized prop is omitted', async () => {
+    await pack(roots.development, { props: { star: 'huge.png' } });
+    await writeFile(path.join(roots.development, 'huge.png'), Buffer.alloc(10 * 1024 * 1024 + 1));
+    expect((await loadArtPack(roots, () => ({ width: 240, height: 420 }))).descriptor.props).toEqual({});
+  });
+  test('a prop reached through a junction is omitted', async () => {
+    const outside = path.join(base, 'outside');
+    await pack(outside);
+    await pack(roots.development, { props: { star: 'escape/sprite.png' } });
+    await symlink(outside, path.join(roots.development, 'escape'), 'junction');
+    const loaded = await loadArtPack(roots, size);
+    expect(loaded.descriptor.source).toBe('development');
+    expect(loaded.descriptor.props).toEqual({});
+    expect((await serveArt(loaded, 'art://pack/escape/sprite.png')).status).toBe(404);
+  });
+  test('a pack with an unknown prop key falls through', async () => {
+    await pack(roots.development, { props: { trombone: 'sprite.png' } });
+    expect((await loadArtPack(roots, size)).descriptor.source).toBe('placeholder');
   });
   test('optional WebP containers reach the browser decoder', async () => {
     await pack(roots.placeholder, { intro: { grab: 'grab.webp' } });
@@ -128,6 +229,34 @@ describe('parseArtManifest boundary', () => {
     expect(() => parseArtManifest({ ...manifest, faces: { grin: '../x.png' } })).toThrow();
     expect(() => parseArtManifest({ ...manifest, intro: { grab: 'https://example.com/x.png' } })).toThrow();
   });
+  test('props accepts each known name and defaults to empty', () => {
+    expect(parseArtManifest(manifest).props).toEqual({});
+    const props = Object.fromEntries(PROP_NAMES.map(name => [name, `props/${name}.png`]));
+    expect(parseArtManifest({ ...manifest, props }).props).toEqual(props);
+  });
+  test('views accepts each known rotation and defaults to empty', () => {
+    expect(parseArtManifest(manifest).views).toEqual({});
+    const views = Object.fromEntries(VIEW_NAMES.map(name => [name, `views/${name}.png`]));
+    expect(parseArtManifest({ ...manifest, views }).views).toEqual(views);
+  });
+  test.each(['left', 'front', 'Side', 'side ', 'constructor', ''])('views rejects unknown key %j', key => {
+    expect(() => parseArtManifest({ ...manifest, views: { [key]: 'side.png' } })).toThrow();
+  });
+  test('views rejects unsafe paths', () => {
+    expect(() => parseArtManifest({ ...manifest, views: { side: '../x.png' } })).toThrow();
+    expect(() => parseArtManifest({ ...manifest, views: { back: 'https://example.com/x.png' } })).toThrow();
+  });
+  test.each(['trombone', 'Boombox', 'boombox ', 'constructor', ''])('props rejects unknown key %j', key => {
+    expect(() => parseArtManifest({ ...manifest, props: { [key]: 'sprite.png' } })).toThrow();
+  });
+  test('a __proto__ key never reaches the props map', () => {
+    const parsed = parseArtManifest({ ...manifest, props: JSON.parse('{"__proto__":"sprite.png"}') });
+    expect(Object.keys(parsed.props)).toEqual([]);
+    expect(Object.getPrototypeOf(parsed.props)).toBe(Object.prototype);
+  });
+  test.each(['../secret.png', '/absolute.png', 'C:/secret.png', '\\\\server\\x.png', 'nested/../sprite.png', 'nested\\sprite.png', '%2e%2e/secret.png', 'https://example.com/x.png', 'prop.svg', 'prop.png:stream', './prop.png', 'CON.png'])('props rejects unsafe path %s', relative => {
+    expect(() => parseArtManifest({ ...manifest, props: { star: relative } })).toThrow();
+  });
   test('accepted paths stay relative and contain no traversal or Windows metacharacters', () => {
     fc.assert(fc.property(fc.string(), candidate => {
       if (!isArtPath(candidate)) return;
@@ -140,7 +269,7 @@ describe('parseArtManifest boundary', () => {
     const segment = fc.stringMatching(/^[a-z][a-z0-9]{0,12}$/);
     fc.assert(fc.property(segment, segment, (dir, stem) => {
       fc.pre(!/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(dir) && !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem));
-      const input = { ...manifest, sprite: `${dir}/${stem}.png`, faces: {}, cutins: {}, intro: {} };
+      const input = { ...manifest, sprite: `${dir}/${stem}.png`, faces: {}, cutins: {}, intro: {}, props: {}, views: {}, poses: {}, expressions: {} };
       expect(parseArtManifest(JSON.parse(JSON.stringify(input)))).toEqual(input);
     }));
   });

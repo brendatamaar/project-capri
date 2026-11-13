@@ -1,0 +1,2 @@
+# Upstream contract pins are checked byte for byte; never convert their line endings.
+vendor/t3-contracts/** -text

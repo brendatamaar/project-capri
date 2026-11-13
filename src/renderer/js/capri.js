@@ -2,19 +2,25 @@
 // She acts with her head and her mane like in the show, and she's timed like cel animation:
 // pose-to-pose acts (acting.js) drawn on twos, on ones for the action beats.
 //
-// Stances: floating ("stand"), perched on a window ("sit"), peeking in from a screen edge
-// ("peek"), falling ("fall") when the window under her goes away or you drop her, held up by the
+// Stances: floating ("stand"), perched on a window ("sit"), showing part of herself at a screen
+// edge ("peek": just her head, half of her leaning out, or head and shoulders over the floor line), falling ("fall") when the window under her goes away or you drop her, held up by the
 // pointer ("held"), flying through the air when you throw her or she jumps to another screen
 // ("fly"), and knocked down on the floor after a crash ("down").
 
-import { SpriteRenderer, SPRITE } from './sprite.js';
+import { SpriteRenderer, SPRITE, handPoint } from './sprite.js';
 import { ACTS, NEUTRAL, Player } from './acting.js';
 import { sleep, rand, pick, clamp, lerp, ease, tween, reducedMotion, today } from './util.js';
 import { targetFrameRate } from '../../core/frame-policy.js';
 import { spring } from '../../core/motion/spring.js';
+import { solveLegs, NO_BEND } from '../../core/motion/legs.js';
+import { JOINTS, followPose, startTracks, valuesOf } from '../../core/motion/blend.js';
+import { buildHull, buildBodyHull } from '../../core/motion/contact.js';
+import { PEEK_KINDS, peekPlan } from '../../core/motion/peek.js';
+import { FLOURISHES, FLOURISH_MEMORY, SIT_CYCLES, STAND_CYCLES, cycleHold, nextCycle, pickFresh, remember } from '../../core/motion/variety.js';
 
 const ON_TWOS = 1000 / 12;
 const ON_ONES = 1000 / 24;
+const ON_THREES = 1000 / 8; // the line boil while she's just standing there
 const ASLEEP = 1000 / 6;
 const SLEEP_AFTER = 10 * 60 * 1000;
 const DOZE_AFTER = 20 * 1000; // asleep this long, she comes apart down to her mask
@@ -36,7 +42,40 @@ const SPUN = new Set(['held', 'fly', 'down']);
 // that puts her so she rests on it instead of sinking into it (sprite px), and the acts she can
 // do lying there (anything else, she sits back up for it first).
 const LIE = 60;
-const LIE_LIFT = 18;
+const LIE_LIFT = 34;
+// Drawn lounge pictures (art/README.md): coiled is upright, perched with her legs hanging;
+// sprawl is drawn turned a quarter, so it turns back to lie along the ledge. `lift` brings the
+// picture's ledge line up onto the ledge, in sprite px.
+// How each drawn pose lands and how she gets back up from it. `settle` and `lift` move the
+// picture itself ([hold, lean, [sx, sy], echo], as playPicture takes them): she arrives in the
+// pose a little past it, a small squash, and rests. `up` is the rig on her seat again
+// ([hold, how far over, pose, how seated, cue], as playLying takes them), for when an act needs
+// her sitting.
+const SEATED = { bend: 0, longL: 1, longR: 1, tilt: 0, hair: 0, echo: [0, 0], sx: 1, sy: 1 };
+const LOUNGE_MOVES = {
+  loungeSprawl: {
+    settle: [[3, 5, [1, 1]], [3, -2, [1.04, 0.95]], [4, 1, [0.99, 1.01]]],
+    lift: [[3, -2, [1.04, 0.95]], [3, 7, [1, 1]], [3, 15, [1.01, 0.99]], [3, 24, [1.02, 0.99], [6, -1]]],
+    up: [
+      [3, -42, { ...SEATED, head: -0.42, mane: 0.26, armL: -0.7, armR: -0.2, kickL: 0.36, kickR: 0.14, hair: 3, echo: [4, 0] }, 0.6, 'rise'],
+      [3, -22, { ...SEATED, head: -0.28, mane: 0.18, armL: -0.64, armR: -0.28, kickL: 0.22, kickR: 0.08, hair: 2 }, 0.8],
+      [3, -8, { ...SEATED, head: -0.1, mane: 0.1, armL: -0.56, armR: -0.38, kickL: 0.1, kickR: 0.04, hair: 1 }, 1],
+      [3, 4, { ...SEATED, head: 0.04, mane: 0.1, armL: -0.44, armR: -0.44, kickL: 0.08, kickR: 0.08, sx: 1.02, sy: 0.97 }, 1],
+      [3, 0, { ...SEATED, head: 0, mane: 0.05, armL: -0.42, armR: -0.42, kickL: 0.04, kickR: 0.04 }, 1],
+    ],
+  },
+  loungeCoiled: {
+    settle: [[3, 4, [1.04, 0.94]], [3, -2, [0.98, 1.03]], [4, 1, [1.01, 0.99]]],
+    lift: [[3, -2, [0.98, 1.03]], [3, 6, [1.03, 0.95]], [3, 12, [1.06, 0.9], [6, -1]]],
+    up: [
+      [3, 16, { ...SEATED, head: 0.36, mane: 0.28, armL: -0.78, armR: -0.22, kickL: 0.28, kickR: 0.48, hair: -3, sx: 1.08, sy: 0.87, echo: [4, 0] }, 1, 'rise'],
+      [3, 9, { ...SEATED, head: 0.2, mane: 0.18, armL: -0.66, armR: -0.32, kickL: 0.18, kickR: 0.28, hair: -2, sx: 1.03, sy: 0.95 }, 1],
+      [3, -3, { ...SEATED, head: -0.04, mane: 0.12, armL: -0.46, armR: -0.46, kickL: 0.08, kickR: 0.08, sx: 0.98, sy: 1.03 }, 1],
+      [3, 0, { ...SEATED, head: 0, mane: 0.05, armL: -0.42, armR: -0.42, kickL: 0.04, kickR: 0.04 }, 1],
+    ],
+  },
+};
+const LOUNGE_ART = { loungeCoiled: { turn: 0, lift: 70 }, loungeSprawl: { turn: 90, lift: 10 } };
 const LYING_ACTS = new Set(['talk', 'look', 'split', 'petted']);
 // Petting her: your pointer going back and forth over her mane, each way at least STROKE px (at
 // her full size), turning within PET_GAP of the last turn. Three turns and she's being petted;
@@ -52,10 +91,12 @@ const INK = [0.08, 0.06, 0.11];
 const RED = [1, 0.13, 0.32];
 
 export class Capri {
-  constructor({ root, canvas, image, fx, voice }) {
+  constructor({ root, canvas, image, views, poses, fx, voice }) {
     this.root = root;
     this.canvas = canvas;
-    this.sprite = new SpriteRenderer(canvas, image);
+    this.sprite = new SpriteRenderer(canvas, image, views, poses);
+    // Drawn lounge pictures the pack supplied (both or neither); without them the rig poses play.
+    this.loungeArt = poses && poses.loungeCoiled && poses.loungeSprawl ? poses : null;
     this.fx = fx;
     this.voice = voice;
 
@@ -66,7 +107,12 @@ export class Capri {
     this.mode = 'idle'; // idle | work | alert | sleep
     this.stance = 'stand';
     this.perch = null;    // { id, dx }: the window she sits on, and where along it
-    this.peekSide = null; // left | right | top
+    this.peekSide = null; // left | right | top | bottom
+    this.peekStyle = null; // head | half | bust (core/motion/peek.ts)
+    this.peekClip = null;  // peeking over the floor line: the screen y nothing of her shows below
+    this.recentPeeks = [];
+    this.cycle = { stand: STAND_CYCLES[0], sit: SIT_CYCLES[0] }; // which idle cycle she's settled into
+    this.recentFlourishes = [];
     this.windows = { fg: 0, wins: [] };
     this.busy = false;
     this.hidden = false;
@@ -94,12 +140,13 @@ export class Capri {
     this.fondness = 0;    // how close she is to you, 0 to 4 (bond.js stages)
 
     this.p = {
-      seed: 0, boil: 0.9, hair: 0, head: 0, mane: 0, armL: 0, armR: 0, longL: 1, longR: 1, sit: 0, bend: 0, kickL: 0, kickR: 0,
+      seed: 0, boil: 0.9, hair: 0, head: 0, mane: 0, armL: NEUTRAL.armL, armR: NEUTRAL.armR, elbowL: NEUTRAL.elbowL, elbowR: NEUTRAL.elbowR, waist: 0, hipX: 0, crouch: 0, thighL: 0, thighR: 0, ikThighL: 0, ikThighR: 0, ikKneeL: 0, ikKneeR: 0, longL: 1, longR: 1, sit: 0, bend: 0, kickL: 0, kickR: 0,
       smear: [0, 0], echo: [0, 0],
       glitch: 0, glitchSeed: 0, split: 0, collapse: 0, dissolve: 0, sparkle: 1, grade: 1,
-      sil: INK, silAmount: 0, misreg: [-2.6, 2.2], alpha: 1,
+      sil: INK, silAmount: 0, misreg: [-2.6, 2.2], alpha: 1, view: 'front',
     };
     this.bob = 0;
+    this.shift = 0; // an act's sideways slide (screen px), in flat() so hits and effects stay on her
     this.tilt = 0;
     this.sx = 1;
     this.sy = 1;
@@ -109,6 +156,10 @@ export class Capri {
     this.frameSetting = 60;
     this.rideTarget = null;
     this.springs = {};
+    this.joints = null;        // the rig's joints following the drawn pose (core/motion/blend)
+    this.jointsAt = 0;
+    this.jointsHot = 0;        // until when the joints are still easing out of an act, so the frame rate stays up
+    this.falling = false;      // hanging in the air a beat before the drop
 
     const now = performance.now();
     this.lastActivity = now;
@@ -116,6 +167,7 @@ export class Capri {
     this.nextMove = now + rand(40000, 80000);
     this.nextGaze = now + rand(40000, 90000);
     this.nextShed = now + rand(3000, 8000);
+    this.nextCycle = now + cycleHold(Math.random());
     this.nextNotice = 0;
     this.peekUntil = 0;
     this.lastGlyph = 0;
@@ -141,7 +193,8 @@ export class Capri {
     this.onScreenOf = null; // async (cursor) => her window moved to the screen the pointer is on: the pointer there
 
     this.alphaMap = this.buildAlphaMap(image);
-    this.hull = buildHull(this.alphaMap);
+    this.hull = buildHull(this.alphaMap, SPRITE.width, SPRITE.height, MID.x, MID.y);
+    this.bodyHull = buildBodyHull(this.alphaMap, SPRITE.width, SPRITE.height, MID.x, MID.y);
     this.setScale(this.scale);
     this.bindPointer();
     this.loop = this.loop.bind(this);
@@ -183,6 +236,7 @@ export class Capri {
     if (this.stance === 'held' && this.held) return this.held.at;
     if (this.stance === 'fly' || this.stance === 'down') return MID;
     if (this.stance === 'sit') return { x: SPRITE.feet.x, y: SPRITE.hip };
+    if (this.stance === 'peek' && this.peekStyle === 'head' && this.peekSide !== 'top') return { x: 118, y: 152 }; // leaning in around her neck
     return SPRITE.feet;
   }
 
@@ -195,7 +249,7 @@ export class Capri {
   // A point of the sprite on screen, as it's drawn before she's turned: from her feet, the way she faces.
   flat(sx, sy) {
     const s = this.scale;
-    return { x: this.pos.x + (sx - SPRITE.feet.x) * s * this.facing, y: this.pos.y + (sy - SPRITE.feet.y) * s + this.bob };
+    return { x: this.pos.x + this.shift + (sx - SPRITE.feet.x) * s * this.facing, y: this.pos.y + (sy - SPRITE.feet.y) * s + this.bob };
   }
 
   // How far she's turned on screen, degrees: her lean or spin, and upside down when she hangs from the top.
@@ -225,10 +279,10 @@ export class Capri {
   // How far her outline reaches from her middle on screen once turned `deg` (px): { minX, maxX,
   // minY, maxY }, and `low`, the x of her lowest point (where she touches the floor). Her outline
   // at rest, mane and all: she bounces off the edges of the screen with the tips of her mane.
-  reachAt(deg, facing = this.facing) {
+  reachAt(deg, facing = this.facing, hull = this.hull) {
     const a = deg * DEG, c = Math.cos(a), sn = Math.sin(a), s = this.scale;
     const r = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, low: 0 };
-    for (const [hx, hy] of this.hull) {
+    for (const [hx, hy] of hull) {
       const x = hx * facing;
       const X = (x * c - hy * sn) * s, Y = (x * sn + hy * c) * s;
       if (X < r.minX) r.minX = X;
@@ -274,11 +328,15 @@ export class Capri {
       const ox = (sq.at.x - left).toFixed(1), oy = (sq.at.y - top).toFixed(1);
       move += ` translate(${ox}px, ${oy}px) scale(${sq.x.toFixed(3)}, ${sq.y.toFixed(3)}) translate(${-ox}px, ${-oy}px)`;
     }
-    this.root.style.transform = move;
-    this.canvas.style.transform = `rotate(${this.turn.toFixed(2)}deg) scale(${(this.facing * this.sx).toFixed(3)}, ${this.sy.toFixed(3)})`;
-    // lying on her ledge, she rests on it: nothing of her shows below its edge
-    const edge = this.lyingOn();
-    this.root.style.clipPath = edge === null ? '' : `polygon(-9999px -9999px, 9999px -9999px, 9999px ${edge - top}px, -9999px ${edge - top}px)`;
+    this.placedAt = { left, top };
+    if (move !== this.lastMove) this.root.style.transform = this.lastMove = move;
+    const pose = `rotate(${this.turn.toFixed(2)}deg) scale(${(this.facing * this.sx).toFixed(3)}, ${this.sy.toFixed(3)})`;
+    if (pose !== this.lastPose) this.canvas.style.transform = this.lastPose = pose;
+    // lying on her ledge, she rests on it: nothing of her shows below its edge. The same for the
+    // floor line she peeks over.
+    const edge = this.clipEdge();
+    const clip = edge === null ? '' : `polygon(-9999px -9999px, 9999px -9999px, 9999px ${edge - top}px, -9999px ${edge - top}px)`;
+    if (clip !== this.lastClip) this.root.style.clipPath = this.lastClip = clip;
     this.onMove?.(this.head());
   }
 
@@ -286,21 +344,28 @@ export class Capri {
   // the y of its edge on screen, else null.
   lyingOn() {
     if (!this.lounge || Math.abs(this.lounge.angle) < LIE - 6 || !this.perch) return null;
+    if (this.p.poseTex) return null; // a drawn pose hangs her legs and mane over the edge
     const win = this.perchWin(this.perch.id);
     return win ? win.y + 1 : null;
+  }
+
+  // The screen y nothing of her is drawn below (lying on a ledge, peeking over the floor line), or null.
+  clipEdge() {
+    return this.lyingOn() ?? (this.stance === 'peek' ? this.peekClip : null);
   }
 
   // her face on screen, plus `top`: the tips of her mane
   head(at = this.pos, facing = this.facing) {
     const s = this.scale;
     const bob = at === this.pos ? this.bob : 0;
-    const dx = (SPRITE.head.x - SPRITE.feet.x) * s * facing;
-    const dy = (SPRITE.feet.y - SPRITE.head.y) * s;
+    const body = at === this.pos ? this.bodyPoint(SPRITE.head.x, SPRITE.head.y) : SPRITE.head;
+    const dx = (body.x - SPRITE.feet.x) * s * facing;
+    const dy = (SPRITE.feet.y - body.y) * s;
     if (at === this.pos && this.upside) {
       const y = at.y + dy + bob;
       return { x: at.x - dx, y, top: y - 30 * s };
     }
-    if (at === this.pos && (SPUN.has(this.stance) || this.lounge) && this.tilt) {
+    if (at === this.pos && (SPUN.has(this.stance) || this.lounge || (this.stance === 'peek' && !this.upside)) && this.tilt) {
       // turned around (held, thrown, lying there): her face where it really is, the tips of her mane above it
       const face = this.screenPoint(SPRITE.head.x, SPRITE.head.y);
       return { ...face, top: face.y - 70 * s };
@@ -312,10 +377,17 @@ export class Capri {
   hit(x, y) {
     if (this.hidden || this.p.alpha < 0.5) return false;
     if (this.perch?.id === 'taskbar' && y > this.view.floor) return false; // the taskbar under her legs stays clickable
-    if (y > (this.lyingOn() ?? Infinity)) return false; // lying on a window: what's cut off under her is the window's
+    if (y > (this.clipEdge() ?? Infinity)) return false; // lying on a window, or behind the floor line: what's cut off isn't her
     const at = this.spritePoint(x, y);
     let sx = at.x;
     let sy = at.y;
+    if (sy <= SPRITE.legCut && (this.p.waist || this.p.hipX || this.p.crouch)) {
+      // the upper body, back where it is drawn from
+      const W = SPRITE.waist, y = sy - (this.p.crouch || 0), x = sx - (this.p.hipX || 0);
+      const k = clamp((W.y + 8 - y) / 34, 0, 1), a = -(this.p.waist || 0) * k * k * (3 - 2 * k);
+      sx = W.x + (x - W.x) * Math.cos(a) - (y - W.y) * Math.sin(a);
+      sy = W.y + (x - W.x) * Math.sin(a) + (y - W.y) * Math.cos(a);
+    }
     if (this.p.bend && sy > SPRITE.hip - 16) {
       // same hips as the shader: legs swung around her hip, easing in over the waist
       const k = clamp((sy - (SPRITE.hip - 16)) / 24, 0, 1);
@@ -455,16 +527,47 @@ export class Capri {
 
   interval() {
     const moving = this.busy || this.dragging || this.rideTarget || this.motionActive || this.stance === 'fall' || SPUN.has(this.stance) || this.skid;
-    const activity = moving ? 'moving' : this.mode === 'sleep' ? 'asleep' : this.act || this.mode === 'work' ? 'working' : 'idle';
+    const activity = moving ? 'moving' : this.mode === 'sleep' ? 'asleep' : this.act || this.mode === 'work' || performance.now() < this.jointsHot ? 'working' : 'idle';
     const rate = targetFrameRate(activity, this.hidden, this.frameSetting);
     return rate ? 1000/rate : Infinity;
+  }
+
+  // Next tick of the frame loop. At low rates she waits on a timer rather than waking the
+  // renderer on every vsync, then rejoins the display with one animation frame.
+  queueLoop(delay) {
+    if (delay > 25) {
+      this.loopTimer = setTimeout(() => {
+        this.loopTimer = null;
+        this.loopHandle = requestAnimationFrame(this.loop);
+      }, delay - 8);
+      this.loopHandle = 'timer';
+    } else this.loopHandle = requestAnimationFrame(this.loop);
+  }
+
+  cancelLoop() {
+    if (this.loopTimer) clearTimeout(this.loopTimer);
+    this.loopTimer = null;
+    if (typeof this.loopHandle === 'number') cancelAnimationFrame(this.loopHandle);
+    this.loopHandle = null;
+  }
+
+  // Something just started: don't sit out the rest of a long idle wait before showing it.
+  kickLoop() {
+    if (!this.loopTimer || this.hidden) return;
+    this.cancelLoop();
+    this.loopHandle = requestAnimationFrame(this.loop);
   }
 
   loop(now) {
     this.loopHandle = null;
     if (this.hidden) return;
-    this.loopHandle = requestAnimationFrame(this.loop);
-    if (now - this.lastDraw < this.interval() - 1) return;
+    const interval = this.interval();
+    const wait = interval - (now - this.lastDraw);
+    if (wait > 1) {
+      this.queueLoop(Number.isFinite(wait) ? wait : 1000);
+      return;
+    }
+    this.queueLoop(Number.isFinite(interval) ? interval : 1000);
     this.behave(now);
     if (this.rideTarget && this.stance === 'sit' && !this.dragging) {
       const dt = Math.min(0.1,(now-(this.motionAt || now))/1000);
@@ -482,15 +585,21 @@ export class Capri {
     if (this.hidden) return;
     this.lastDraw = now;
     this.animate(now);
-    this.sprite.draw(this.p);
+    const legs = this.stance === 'stand' && !this.dragging ? solveLegs(this.p.crouch, this.p.hipX) : NO_BEND;
+    this.p.ikThighL = legs.thighL; this.p.ikThighR = legs.thighR; this.p.ikKneeL = legs.kneeL; this.p.ikKneeR = legs.kneeR;
+    this.p.legScale = [legs.thighScaleL, legs.shinScaleL, legs.thighScaleR, legs.shinScaleR];
+    this.drewSprite = this.sprite.draw(this.p);
     this.place();
+    this.drewSprite = false;
   }
 
   // Pick the drawing: the stance's cycle underneath, the current act on top.
   animate(now) {
     const p = this.p;
-    const exposure = Math.floor(now/(this.act?.player.act.fps === 24 ? ON_ONES : ON_TWOS));
-    if (exposure !== this.exposure) { this.exposure=exposure; p.seed = Math.random()*100; }
+    const moving = this.act || this.busy || this.dragging || this.motionActive || this.stance === 'fly';
+    const exposure = Math.floor(now/(this.act?.player.act.fps === 24 ? ON_ONES : moving ? ON_TWOS : ON_THREES));
+    const newExposure = exposure !== this.exposure;
+    if (newExposure) { this.exposure=exposure; p.seed = Math.random()*100; }
 
     const under = this.base.sample(now);
     const base = under ? this.base.resolve(under.pose, this.facing) : {};
@@ -518,49 +627,109 @@ export class Capri {
       pose.head = (base.head ?? 0) + (act.head ?? 0);
       pose.mane = (base.mane ?? 0) + (act.mane ?? 0);
     }
-    if (this.mode === 'sleep' && this.stance === 'sit' && !act) {
-      if (this.lounge) Object.assign(pose, { head: -0.62, mane: -0.14, kickL: 0.22 }); // dozing off lying there, head drooping
-      else Object.assign(pose, { head: 0.12, mane: -0.1, kickL: 0.03, kickR: 0.03, armL: -0.45, armR: -0.45 }); // dozing on the ledge
+    if (this.mode === 'sleep' && this.stance === 'sit' && !act && !this.lounge) {
+      Object.assign(pose, { head: 0.12, mane: -0.1, kickL: 0.03, kickR: 0.03, armL: -0.45, armR: -0.45, elbowL: -0.5, elbowR: -0.5 }); // dozing on the ledge (the lounge cycle keeps its own poses lying there)
     }
     if (this.stance === 'fly') this.flyPose(pose);
     else if (this.stance === 'held') this.heldPose(pose);
     if (this.override) Object.assign(pose, this.override);
+    // Drawn lounge art replaces the rig warp: the picture already is the pose, so every rig
+    // field goes neutral. She holds the one picture she settled into (lieDownDrawn picks it);
+    // the cycle's two short drawings only flicker a glitch echo over it.
+    let drawnTex = null;
+    if (this.lounge?.art && this.lounge.shown) {
+      drawnTex = this.lounge.art;
+      const index = under?.index ?? 0;
+      pose.echo = this.lounge.flash ?? (index === 2 || index === 5 ? [5, -1] : [0, 0]);
+      const [sx, sy] = this.lounge.squash ?? [1, 1];
+      Object.assign(pose, { head: 0, mane: 0, hair: 0, armL: NEUTRAL.armL, armR: NEUTRAL.armR, elbowL: NEUTRAL.elbowL, elbowR: NEUTRAL.elbowR, longL: 1, longR: 1, kickL: 0, kickR: 0, bend: 0, sx, sy, tilt: 0, smear: [0, 0] });
+    }
 
     p.head = pose.head;
     p.mane = pose.mane;
     p.hair = pose.hair;
     p.armL = pose.armL;
     p.armR = pose.armR;
+    p.elbowL = pose.elbowL;
+    p.elbowR = pose.elbowR;
+    // Feet only stay planted while she stands; seated and lying poses keep their own legs.
+    const planted = this.stance === 'stand' && !this.dragging;
+    const legged = !this.lounge && !['sit', 'peek'].includes(this.stance);
+    p.crouch = planted ? pose.crouch : 0;
+    p.hipX = planted ? pose.hipX : 0;
+    p.thighL = legged ? pose.thighL : 0;
+    p.thighR = legged ? pose.thighR : 0;
+    p.waist = this.lounge ? 0 : pose.waist;
     p.longL = pose.longL;
     p.longR = pose.longR;
     p.kickL = pose.kickL;
     p.kickR = pose.kickR;
+    p.view = pose.view ?? 'front';
+    p.poseTex = drawnTex;
     p.bend = pose.bend;
     p.smear = pose.smear;
     p.echo = pose.echo;
+    this.followJoints(now);
     if (!act && !this.busy && !SPUN.has(this.stance) && !this.override && !reducedMotion.matches) {
       const dt=Math.min(0.1,(now-(this.poseAt || now))/1000);
       for(const key of ['head','mane','hair']) {
         this.springs[key]=spring(this.springs[key] || {value:p[key],velocity:0},p[key],dt,key==='head'?45:40);
         p[key]=this.springs[key].value;
       }
-    } else { for(const key of ['head','mane','hair']) this.springs[key]={value:p[key],velocity:0}; }
+      // standing idle, the follow-through shows on the same threes as the boil, so held cels stay held
+      if (moving) this.heldLook = null;
+      else if (newExposure || !this.heldLook) this.heldLook = { head: p.head, mane: p.mane, hair: p.hair };
+      else Object.assign(p, this.heldLook);
+    } else { this.heldLook = null; for(const key of ['head','mane','hair']) this.springs[key]={value:p[key],velocity:0}; }
     this.poseAt=now;
     // on a ledge she stays seated: no lifting off it, no sinking through it
     const bob = this.stance === 'sit' ? clamp(pose.bob, -3, 2) : pose.bob;
     const spun = SPUN.has(this.stance);
     this.bob = spun || this.dragging ? 0 : bob;
+    this.shift = spun || this.dragging ? 0 : (pose.shift ?? 0) * this.scale;
     this.tilt = spun ? this.spin + pose.tilt : pose.tilt;
+    if (this.act?.player.act.spins && pose.tilt && !spun && !this.dragging) {
+      // she turns around her pivot; move that pivot so the middle of her stays where it was
+      const P = this.pivotPoint(), a = pose.tilt * DEG, s = this.scale;
+      const vx = (MID.x - P.x) * s * this.facing, vy = (MID.y - P.y) * s;
+      this.shift += vx - (vx * Math.cos(a) - vy * Math.sin(a));
+      this.bob += vy - (vx * Math.sin(a) + vy * Math.cos(a));
+    }
     if (this.lounge) {
       const { side, angle } = this.lounge;
-      this.tilt += side * angle;
-      this.bob -= LIE_LIFT * this.scale * Math.max(0, Math.sin(angle * DEG));
+      const art = p.poseTex ? LOUNGE_ART[p.poseTex] : null;
+      if (art) {
+        // A drawn pose has its own layout: how far it turns, and how far up its ledge line sits.
+        this.tilt += side * (art.turn + (this.lounge.lean ?? 0));
+        this.bob -= art.lift * this.scale;
+      } else {
+        this.tilt += side * angle;
+        this.bob -= LIE_LIFT * this.scale * Math.max(0, Math.sin(angle * DEG));
+      }
     }
     this.sx = pose.sx;
     this.sy = pose.sy;
     this.onPose?.(p, now);
     if (this.debug) Object.assign(p, this.debug); // --dev pose overrides
     if (cue) this.onCue(cue);
+  }
+
+  // The joints ease toward the drawn pose: crisp while an act is on the exposure clock, a softer
+  // drift for her stance cycles and for whatever carries over when one ends or the stance changes.
+  followJoints(now) {
+    const p = this.p;
+    const target = Object.fromEntries(JOINTS.map((key) => [key, p[key]]));
+    const dt = (now - this.jointsAt) / 1000;
+    this.jointsAt = now;
+    if (reducedMotion.matches || !this.joints || !(dt < 0.5)) {
+      this.joints = startTracks(target);
+      return;
+    }
+    const feel = this.act && !this.pointing ? 'stepped' : this.override || this.pointing ? 'mixed' : 'soft';
+    this.joints = followPose(this.joints, target, dt, feel);
+    Object.assign(p, valuesOf(this.joints));
+    // easing out of an act needs more drawings than a cycle sitting there; the idle rate is enough for that
+    if (feel !== 'soft') this.jointsHot = performance.now() + 700;
   }
 
   behave(now) {
@@ -604,6 +773,15 @@ export class Capri {
     if (this.stance === 'peek' && now > this.peekUntil) {
       this.unpeek();
       return;
+    }
+
+    // Standing or sitting around, she settles into another idle cycle now and then. She changes
+    // on the first drawing of the one she's in (bob 0), so only her joints have to ease across.
+    if (now > this.nextCycle && this.mode === 'idle' && !this.act && !this.pointing && !this.lounge && !reducedMotion.matches
+      && (this.stance === 'stand' || this.stance === 'sit') && this.baseIndex === 0) {
+      this.nextCycle = now + cycleHold(Math.random());
+      this.cycle[this.stance] = nextCycle(this.stance === 'stand' ? STAND_CYCLES : SIT_CYCLES, this.cycle[this.stance], Math.random());
+      this.base = this.restBase();
     }
 
     // resting on the taskbar: a little while after anything happens, she goes back to sit on it
@@ -660,7 +838,7 @@ export class Capri {
     }
     const seat = this.pickSeat();
     const r = Math.random();
-    if (seat && r < 0.35) this.sitOn(seat);
+    if (seat && r < 0.35) { if (this.loungeArt && Math.random() < 0.4) this.loungeOn(seat); else this.sitOn(seat); }
     else if (r < 0.6) this.peek();
     else if (r < 0.85) this.teleport(this.spot('random'));
     else this.flourish();
@@ -669,26 +847,36 @@ export class Capri {
   flourish() {
     if (this.lounge) {
       if (Math.random() < 0.5) this.perform('look');
+      else if (this.lounge.art) this.teleport(this.spot('random')); // done lounging: gone from the pose itself
       else this.getUp();
     } else if (this.stance === 'sit') {
       if (Math.random() < 0.3) this.lieDown();
-      else this.perform(pick(['look', 'look', 'split', 'stretch']));
-    } else this.perform(pick(['spin', 'look', 'hop', 'curious', 'split']), this.towardCenter());
+      else this.idleAct('sit');
+    } else this.idleAct('stand');
+  }
+
+  // One of the small things she does by herself, not one she did a moment ago.
+  idleAct(kind) {
+    const name = pickFresh(FLOURISHES[kind], this.recentFlourishes, Math.random());
+    this.recentFlourishes = remember(this.recentFlourishes, name, FLOURISH_MEMORY);
+    return this.perform(name, this.towardCenter());
   }
 
   // Bored on her ledge, she lies back on it: a little lean the other way, then she lets herself
   // go over sideways, folding her arms away into her while her legs swing up along the ledge and
   // her head stays up; a small squash as she settles, and she stays like that (the 'lounge' cycle).
   async lieDown() {
+    if (this.loungeArt) return this.lieDownDrawn();
     if (this.lounge || this.stance !== 'sit' || this.busy || this.act || this.pointing || this.mode === 'work') return;
     const lounge = { side: this.facing, angle: 0, rising: null };
     this.lounge = lounge;
     const done = await this.playLying(lounge, [
       [3, -4, { bend: 0, head: 0.06, mane: 0.06, armL: -0.5, longL: 1, armR: -0.5, longR: 1, kickL: 0.04, kickR: 0.04 }, 1],
       [2, 22, { bend: 0.16, head: -0.3, mane: 0.1, armL: -0.62, longL: 0.7, armR: -0.3, longR: 0.7, kickL: 0.06, kickR: 0 }, 0.6],
+      [2, 33, { bend: 0.26, head: -0.48, mane: 0.22, armL: -0.68, longL: 0.5, armR: -0.22, longR: 0.5, kickL: 0.3, kickR: -0.1, hair: 2, echo: [6, 0] }, 0.4],
       [2, 44, { bend: 0.34, head: -0.64, mane: 0.06, armL: -0.75, longL: 0.35, armR: -0.15, longR: 0.35, kickL: 0.14, kickR: 0 }, 0.2],
-      [2, LIE + 4, { bend: 0.5, head: -0.95, mane: -0.08, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, kickR: 0, sy: 0.95, sx: 1.04 }, 0, 'land'],
-      [2, LIE, { bend: 0.52, head: -0.9, mane: -0.02, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.25, kickR: 0 }, 0],
+      [2, LIE + 4, { bend: 0.82, head: -1.12, mane: 0.48, armL: -0.9, longL: 0.01, armR: -0.1, longR: 0.01, kickL: 0.85, kickR: 0.5, echo: [6, 0], sy: 0.9, sx: 1.08, tilt: -5 }, 0, 'land'],
+      [2, LIE, { bend: 0.85, head: -1.15, mane: 0.5, armL: -0.9, longL: 0.01, armR: -0.1, longR: 0.01, kickL: 0.9, kickR: 0.55, hair: -2, echo: [6, 0], sx: 1.1, sy: 0.88, tilt: -6 }, 0],
     ]);
     if (!done) return;
     lounge.angle = LIE;
@@ -702,9 +890,11 @@ export class Capri {
   getUp() {
     const lounge = this.lounge;
     if (!lounge) return Promise.resolve();
+    if (lounge.art) return this.getUpDrawn(lounge);
     lounge.rising ??= this.playLying(lounge, [
-      [2, LIE + 4, { bend: 0.54, head: -0.94, mane: -0.1, armL: -0.88, longL: 0.01, armR: 0, longR: 0.01, kickL: 0.2, kickR: 0, sy: 0.96, sx: 1.03 }, 0, 'rise'],
+      [2, LIE + 4, { bend: 0.82, head: -1.1, mane: 0.48, armL: -0.9, longL: 0.01, armR: -0.1, longR: 0.01, kickL: 0.85, kickR: 0.5, echo: [6, 0], sy: 0.92, sx: 1.08, tilt: -5 }, 0, 'rise'],
       [2, 40, { bend: 0.3, head: -0.55, mane: 0.12, armL: -0.7, longL: 0.4, armR: -0.2, longR: 0.4, kickL: 0.1, kickR: 0 }, 0.3],
+      [2, 33, { bend: 0.26, head: -0.48, mane: 0.22, armL: -0.68, longL: 0.5, armR: -0.22, longR: 0.5, kickL: 0.3, kickR: -0.1, hair: 2, echo: [6, 0] }, 0.4],
       [2, 16, { bend: 0.1, head: -0.2, mane: 0.12, armL: -0.55, longL: 0.8, armR: -0.4, longR: 0.8, kickL: 0.06, kickR: 0.04 }, 0.7],
       [2, -4, { bend: 0, head: 0, mane: 0.12, armL: -0.42, longL: 1, armR: -0.42, longR: 1, kickL: 0.08, kickR: 0.08, sy: 0.96, sx: 1.03 }, 1],
       [2, 0, { bend: 0, head: 0, mane: 0.05, armL: -0.42, longL: 1, armR: -0.42, longR: 1, kickL: 0.04, kickR: 0.04 }, 1],
@@ -736,6 +926,44 @@ export class Capri {
     return true;
   }
 
+  // With drawn lounge pictures she doesn't turn into the pose from sitting (the pictures aren't
+  // the rig, so that never read as one movement): she blinks out and comes back on the same
+  // seat already in one of the two poses, picked at random (or the `variant` asked for).
+  async lieDownDrawn(variant) {
+    if (!this.loungeArt || this.lounge || this.stance !== 'sit' || this.busy || this.act || this.pointing || this.mode === 'work' || !this.perch) return;
+    const win = this.perchWin(this.perch.id);
+    if (win) await this.loungeOn({ win, dx: this.perch.dx }, variant);
+  }
+
+  // Back out of a drawn lounge pose: the picture lifts the way it came, then her rig turns back
+  // upright on her seat and settles.
+  getUpDrawn(lounge) {
+    lounge.rising ??= (async () => {
+      const move = LOUNGE_MOVES[lounge.art];
+      if (lounge.shown && !await this.playPicture(lounge, move.lift)) return;
+      lounge.shown = false;
+      if (!await this.playLying(lounge, move.up)) return;
+      this.lounge = null;
+      this.p.sit = 1;
+      this.base = this.restBase();
+    })();
+    return lounge.rising;
+  }
+
+  // The drawn pose moving, drawing by drawing ([hold, lean in degrees, [sx, sy], echo]): false if
+  // she was taken over on the way.
+  async playPicture(lounge, frames) {
+    for (const [hold, lean, squash, echo] of reducedMotion.matches ? [] : frames) {
+      Object.assign(lounge, { lean, squash, flash: echo ?? null });
+      this.drawFrame();
+      await sleep(hold * ON_ONES);
+      if (this.lounge !== lounge) return false;
+    }
+    Object.assign(lounge, { lean: 0, squash: null, flash: null });
+    this.drawFrame();
+    return true;
+  }
+
   // ---------- acting ----------
 
   // Play an act from acting.js. Resolves when it's over (or cut off by a stronger one).
@@ -752,6 +980,7 @@ export class Capri {
     const next = new Player(name, { dir, reach });
     if (this.act && this.act.player.priority > next.priority) return Promise.resolve();
     this.endAct(false);
+    this.kickLoop();
     return new Promise((done) => {
       this.act = { player: next, done };
     });
@@ -765,10 +994,12 @@ export class Capri {
     current.done();
   }
 
-  setStance(stance, { perch = null, peekSide = null, dir = 0 } = {}) {
+  setStance(stance, { perch = null, peekSide = null, peekStyle = null, peekClip = null, dir = 0 } = {}) {
     this.stance = stance;
     this.perch = perch;
     this.peekSide = peekSide;
+    this.peekStyle = peekSide ? peekStyle ?? 'head' : null;
+    this.peekClip = peekSide ? peekClip : null;
     this.p.sit = stance === 'sit' ? 1 : 0;
     if (!SPUN.has(stance)) this.spin = 0;
     if (stance !== 'held') this.held = null;
@@ -786,13 +1017,13 @@ export class Capri {
   }
 
   baseAct() {
-    if (this.stance === 'sit') return this.lounge ? 'lounge' : 'sit';
-    if (this.stance === 'peek') return 'peek';
+    if (this.stance === 'sit') return this.lounge ? 'lounge' : this.cycle.sit;
+    if (this.stance === 'peek') return this.peekStyle === 'half' ? 'peekHalf' : this.peekStyle === 'bust' ? 'peekBust' : 'peek';
     if (this.stance === 'fall') return 'fall';
     if (this.stance === 'held') return 'held';
     if (this.stance === 'fly') return this.flight?.kind === 'leap' ? 'leap' : 'tumble';
     if (this.stance === 'down') return 'ko';
-    return this.mode === 'sleep' ? 'sleep' : 'stand';
+    return this.mode === 'sleep' ? 'sleep' : this.cycle.stand;
   }
 
   setMode(mode) {
@@ -805,6 +1036,8 @@ export class Capri {
     const prev = this.mode;
     this.mode = mode;
     if (mode === 'sleep') this.sleptAt = now;
+    if (mode === 'sleep' && this.stance === 'sit' && !this.lounge && !this.dormant) this.lieDown(); // dozes lying on her ledge
+    if (prev === 'sleep' && !this.busy && !this.hidden && !this.dormant && !this.act && !this.lounge && ['stand', 'sit'].includes(this.stance)) this.perform('wake');
     if (mode !== 'idle' && mode !== 'sleep') this.getUp(); // something's going on: no lying around
     this.onMode?.(mode, prev);
     if (this.stance === 'stand') this.base = this.restBase();
@@ -871,11 +1104,20 @@ export class Capri {
   }
 
   // A point of the sprite (sprite px) on screen, where she stands, the way she faces.
+  // A sprite point moved the way the shader moves the upper body: bent at the waist, carried by the pelvis.
+  bodyPoint(sx, sy) {
+    if (sy > SPRITE.legCut) return { x: sx, y: sy };
+    const { waist, hipX, crouch } = this.p, W = SPRITE.waist;
+    const k = clamp((W.y + 8 - sy) / 34, 0, 1), a = (waist || 0) * k * k * (3 - 2 * k);
+    const dx = sx - W.x, dy = sy - W.y;
+    return { x: W.x + dx * Math.cos(a) - dy * Math.sin(a) + (hipX || 0), y: W.y + dx * Math.sin(a) + dy * Math.cos(a) + (crouch || 0) };
+  }
+
   toScreen(sx, sy) {
-    const s = this.scale;
+    const s = this.scale, b = this.bodyPoint(sx, sy);
     return {
-      x: this.pos.x + (sx - SPRITE.feet.x) * s * this.facing,
-      y: this.pos.y - (SPRITE.feet.y - sy) * s + this.bob,
+      x: this.pos.x + this.shift + (b.x - SPRITE.feet.x) * s * this.facing,
+      y: this.pos.y - (SPRITE.feet.y - b.y) * s + this.bob,
     };
   }
 
@@ -886,12 +1128,10 @@ export class Capri {
 
   // Shoulder and hand of one arm on screen, at the arm's current angle (same turn as the shader).
   limb(side) {
-    const { shoulder, hand, mirror } = SPRITE;
-    const a = side === 'L' ? this.p.armL : this.p.armR;
-    const k = side === 'L' ? this.p.longL : this.p.longR;
-    const vx = (hand.x - shoulder.x) * k, vy = (hand.y - shoulder.y) * k;
-    let hx = shoulder.x + Math.cos(a) * vx - Math.sin(a) * vy;
-    const hy = shoulder.y + Math.sin(a) * vx + Math.cos(a) * vy;
+    const { shoulder, mirror } = SPRITE;
+    const point = side === 'L' ? handPoint(this.p.armL, this.p.longL, this.p.elbowL) : handPoint(this.p.armR, this.p.longR, this.p.elbowR);
+    let hx = point.x;
+    const hy = point.y;
     let sx = shoulder.x;
     if (side === 'R') {
       hx = mirror - hx;
@@ -1151,6 +1391,7 @@ export class Capri {
         break;
       default:
         if (this.sky) this.skyCue(cue);
+        else this.onAnticCue?.(cue);
         break;
     }
   }
@@ -1292,7 +1533,7 @@ export class Capri {
   }
 
   // Come back at `to`: a column of light down to her, the body unfolding, two impact frames.
-  async arrive(to, { face = null, stance = 'stand', perch = null, peekSide = null, dir = 0, fromHead = null, beam = true } = {}) {
+  async arrive(to, { face = null, stance = 'stand', perch = null, peekSide = null, dir = 0, fromHead = null, beam = true, lounge = null } = {}) {
     const p = this.p;
     const s = this.scale;
     const facing = face ?? (to.x > this.view.w / 2 ? 1 : -1);
@@ -1304,6 +1545,14 @@ export class Capri {
     this.pos = { ...to };
     this.facing = facing;
     this.setStance(stance, { perch, peekSide, dir });
+    // straight into a drawn lounge pose: she never sits up facing you first
+    const lying = lounge && stance === 'sit' && this.loungeArt ? { side: facing, angle: 0, rising: null, art: lounge, shown: true, flash: null, lean: 0, squash: null } : null;
+    if (lying) {
+      this.lounge = lying;
+      p.sit = 0;
+      this.base = this.restBase();
+      this.drawFrame();
+    }
     this.place();
 
     if (reducedMotion.matches) {
@@ -1333,7 +1582,8 @@ export class Capri {
     await sleep(ON_ONES);
     p.silAmount = 0;
     this.fx.burst(toHead.x, toHead.y + 60 * s, { count: 10, power: 0.55, spread: 110 * s });
-    if (stance === 'sit') this.perform('plop');
+    if (lying) this.playPicture(lying, LOUNGE_MOVES[lying.art].settle); // she lands in the pose: a small squash, and rest
+    else if (stance === 'sit') this.perform('plop');
     await tween(p, { glitch: 0, split: 0 }, 220, ease.out);
   }
 
@@ -1488,6 +1738,14 @@ export class Capri {
     return this.teleport(this.seat(win, dx), { stance: 'sit', perch: { id: win.id, dx }, face: this.facing });
   }
 
+  // Onto a window edge straight in one of the two drawn lounge poses, picked at random (or the
+  // `variant` asked for). Without drawn poses she sits down there, then lies back on the rig.
+  loungeOn({ win, dx }, variant) {
+    if (!this.loungeArt) return this.sitOn({ win, dx }).then(() => this.lieDown());
+    const lounge = LOUNGE_ART[variant] ? variant : Math.random() < 0.5 ? 'loungeCoiled' : 'loungeSprawl';
+    return this.teleport(this.seat(win, dx), { stance: 'sit', perch: { id: win.id, dx }, face: this.facing, lounge });
+  }
+
   canPossess() {
     return this.possessWindows && !this.busy && !this.hidden && this.stance === 'sit' && !reducedMotion.matches
       && this.windows.wins.some((w) => w.id === this.perch?.id);
@@ -1549,33 +1807,17 @@ export class Capri {
     return true;
   }
 
-  // Lean in from an edge of the screen: vanish, then slide in on twos, three drawings.
-  async peek(side = pick(['left', 'right', 'top'])) {
+  // Show part of herself at an edge of the screen: vanish, then slide in on twos, a little too
+  // far and back. `kind` is one of PEEK_KINDS (core/motion/peek.ts, which works out where she
+  // goes): just her head from the left, right or top, half of her leaning out from behind a side
+  // edge, or head and shoulders up over the floor line. Left out, she picks one she hasn't just done.
+  async peek(kind) {
     if(!this.behaviors.peek)return;
     if (this.busy) return;
-    const s = this.scale;
-    const { w, h } = this.view;
-    let at, from, facing, dir;
-    if (side === 'left') {
-      const y = rand(h * 0.55, this.floor);
-      facing = -1;
-      dir = 1;
-      at = { x: 14 * s, y };
-      from = { x: -170 * s, y };
-    } else if (side === 'right') {
-      const y = rand(h * 0.55, this.floor);
-      facing = 1;
-      dir = -1;
-      at = { x: w - 14 * s, y };
-      from = { x: w + 170 * s, y };
-    } else {
-      // hanging upside down from the top edge, only the head and the mane showing
-      const x = rand(w * 0.2, w * 0.8);
-      facing = pick([1, -1]);
-      dir = x > w / 2 ? -1 : 1;
-      at = { x, y: -226 * s };
-      from = { x, y: -470 * s };
-    }
+    if (!PEEK_KINDS.includes(kind)) kind = pickFresh(PEEK_KINDS, this.recentPeeks, Math.random());
+    this.recentPeeks = remember(this.recentPeeks, kind, 2);
+    const plan = peekPlan(kind, this.view, this.scale, Math.random(), Math.random());
+    const { at, from, facing, dir } = plan;
 
     this.busy = true;
     this.wake();
@@ -1583,21 +1825,22 @@ export class Capri {
     if (this.p.alpha > 0) await this.vanish();
     this.pos = { ...from };
     this.facing = facing;
-    this.setStance('peek', { peekSide: side, dir });
+    this.setStance('peek', { peekSide: plan.side, peekStyle: plan.style, peekClip: plan.clipBelow, dir });
     this.p.collapse = 0;
     this.p.dissolve = 0;
     this.p.glitch = 0;
     this.p.split = 0;
     this.p.alpha = this.mode === 'sleep' ? 0.55 : 1;
     if (reducedMotion.matches) {
-      this.pos = at;
+      this.pos = { ...at };
     } else {
-      for (const k of [0.45, 0.8, 1]) {
+      for (const k of plan.steps) {
         this.pos = { x: lerp(from.x, at.x, k), y: lerp(from.y, at.y, k) };
         this.drawFrame();
         await sleep(ON_TWOS);
       }
     }
+    this.pos = { ...at };
     this.peekFrom = from;
     this.peekUntil = performance.now() + rand(15000, 40000);
     this.busy = false;
@@ -1621,10 +1864,9 @@ export class Capri {
     this.p.collapse = 1;
     this.p.dissolve = 0.5;
     this.busy = false;
-    const side = this.peekSide;
     this.setStance('stand');
     if (shy && Math.random() < 0.6) {
-      this.peek(pick(['left', 'right', 'top'].filter((x) => x !== side)));
+      this.peek(); // somewhere else: not where she just was
       return;
     }
     this.busy = true;
@@ -1656,7 +1898,21 @@ export class Capri {
     return { y: this.floor, stance: 'stand', perch: null };
   }
 
+  // The ledge goes: she hangs in the air a beat, startled, like a cartoon, then drops.
   fall() {
+    if (this.stance === 'fall' || this.falling) return;
+    if (this.stance === 'sit' && !this.dragging && !reducedMotion.matches) {
+      this.falling = true;
+      this.perform('startle').then(() => {
+        this.falling = false;
+        if (this.stance === 'sit') this.dropNow();
+      });
+      return;
+    }
+    this.dropNow();
+  }
+
+  dropNow() {
     if (this.stance === 'fall') return;
     if (this.sky) this.endAct(false);
     this.landingSpot = this.landing();
@@ -1871,7 +2127,7 @@ export class Capri {
     this.hidden = hidden;
     this.root.hidden = hidden;
     this.onVisibility?.(hidden);
-    if (hidden) { if (this.loopHandle) cancelAnimationFrame(this.loopHandle); this.loopHandle=null; }
+    if (hidden) this.cancelLoop();
     else if (!this.loopHandle) { this.lastDraw=0; this.motionAt=0; this.poseAt=0; this.loopHandle=requestAnimationFrame(this.loop); }
   }
 
@@ -1885,6 +2141,7 @@ export class Capri {
     });
     this.canvas.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || !this.hit(e.clientX, e.clientY)) return;
+      this.kickLoop();
       // thrown: you can catch her on the fly, or pick her up off the floor
       const thrown = this.stance === 'fly' || this.stance === 'down';
       if (this.busy && !thrown) return;
@@ -2061,6 +2318,7 @@ export class Capri {
   flyPose(pose) {
     const f = this.flight;
     if (!f) return;
+    if (f.phase === 'slide') pose.view = 'side'; // sliding in on her side: the profile drawing
     const speed = Math.hypot(f.v.x, f.v.y);
     if (speed < 1) return;
     const [ux, uy] = this.inFrame(f.v.x / speed, f.v.y / speed);
@@ -2321,11 +2579,14 @@ export class Capri {
     this.koSequence(f.id, side, { hard: f.hard, hits: f.hits, soft });
   }
 
-  // Lying there (or getting up): her middle just high enough for her outline to rest on the floor.
+  // Lying there (or getting up): her middle just high enough for her body to rest on the floor.
+  // The full outline (mane and all) only keeps her on screen sideways; the floor
+  // contact is the body hull, so the mane never holds her floating above it.
   layDown() {
     const r = this.reachAt(this.spin);
+    const b = this.reachAt(this.spin, this.facing, this.bodyHull);
     const c = this.lying.c;
-    c.y = this.view.floor - 2 - r.maxY;
+    c.y = this.view.floor - 2 - b.maxY;
     c.x = clamp(c.x, -r.minX, this.view.w - r.maxX);
     this.setMid(c);
   }
@@ -2340,10 +2601,10 @@ export class Capri {
     }
     // back up: she curls up a little further first, springs up past upright, lands on her feet
     const steps = [
-      [3, 97, { mane: -0.28, armL: -0.45, armR: -0.4, kickL: 0.3, kickR: 0.3, sy: 0.93, sx: 1.05 }],
-      [1, 62, { mane: 0.3, armL: 0.55, armR: 0.45, sy: 1.15, sx: 0.9, smear: [0, 16] }],
-      [1, 28, { mane: 0.4, armL: 0.38, armR: 0.32, sy: 1.08, sx: 0.94, smear: [0, 10] }],
-      [2, -8, { mane: 0.22, armL: 0.06, armR: 0.06, sy: 0.86, sx: 1.12 }],
+      [3, 97, { view: 'side', mane: -0.28, armL: -0.45, armR: -0.4, elbowL: 1.5, elbowR: -1.1, kickL: 0.3, kickR: 0.3, sy: 0.93, sx: 1.05 }],
+      [1, 62, { view: 'quarter', mane: 0.3, armL: 0.55, armR: 0.45, elbowL: 0.4, elbowR: 0.5, sy: 1.15, sx: 0.9, smear: [0, 16] }],
+      [1, 28, { view: 'front', mane: 0.4, armL: 0.38, armR: 0.32, elbowL: 0.6, elbowR: 0.6, sy: 1.08, sx: 0.94, smear: [0, 10] }],
+      [2, -8, { mane: 0.22, armL: 0.06, armR: 0.06, elbowL: 0.5, elbowR: 0.5, sy: 0.86, sx: 1.12 }],
       [2, 3, { mane: 0.14, sy: 1.03, sx: 0.98 }],
     ];
     this.voice.play('rise');
@@ -2694,7 +2955,7 @@ export class Capri {
     if (this.mode !== 'idle') return;
     // now and then she's a little menace about it
     if (Math.random() < 0.3 && this.zap(x, y)) return;
-    this.perform('curious', x < h.x ? -1 : 1);
+    this.perform(Math.random() < 0.25 ? 'wave' : 'curious', x < h.x ? -1 : 1);
   }
 }
 
@@ -2707,34 +2968,4 @@ function turnAround(p, o, a) {
 // An angle in degrees, brought back between -180 and 180.
 function norm(deg) {
   return ((((deg + 180) % 360) + 360) % 360) - 180;
-}
-
-// Her outline at rest (the alpha map), as a convex hull around her middle, in sprite px: how far
-// she reaches in any direction once she's turned (reachAt). Her mane is most of it.
-function buildHull(alpha) {
-  const { width: w, height: h } = SPRITE;
-  const pts = [];
-  for (let y = 0; y < h; y += 3) {
-    let a = -1, b = -1;
-    for (let x = 0; x < w; x++) {
-      if (alpha[(y * w + x) * 4 + 3] > 40) {
-        if (a < 0) a = x;
-        b = x;
-      }
-    }
-    if (a >= 0) pts.push([a - MID.x, y - MID.y], [b - MID.x, y - MID.y]);
-  }
-  // Andrew's monotone chain
-  pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-  const cross = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
-  const half = (list) => {
-    const out = [];
-    for (const p of list) {
-      while (out.length >= 2 && cross(out.at(-2), out.at(-1), p) <= 0) out.pop();
-      out.push(p);
-    }
-    out.pop();
-    return out;
-  };
-  return [...half(pts), ...half([...pts].reverse())];
 }

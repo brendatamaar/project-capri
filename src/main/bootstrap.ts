@@ -4,6 +4,7 @@ import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { loadArtPack, serveArt } from './art';
 import { createCompanion } from './windows/overlay';
+import { createShowcase } from './windows/showcase';
 import { createAgentPanel } from './windows/agent-panel';
 import { readSettings } from './stores/companion-settings';
 import {loadAssistantContext, type AssistantContext} from './assistant/context';
@@ -50,9 +51,35 @@ app.whenReady().then(async () => {
     callback({ cancel: !details.url.startsWith('file:') && !details.url.startsWith('art://pack/') && !details.url.startsWith('sound://custom/') });
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  if (process.argv.includes('--showcase')) {
+    const window = createShowcase({ smoke })();
+    if (smoke) {
+      window.webContents.on('console-message', details => console.log('SHOWCASE_RENDERER:', details.message));
+      await new Promise<void>(resolve => window.webContents.once('did-finish-load', () => resolve()));
+      await window.webContents.executeJavaScript(`new Promise((resolve,reject)=>{const check=()=>document.body.dataset.ready==='true'?resolve(true):document.body.dataset.ready==='failed'?reject(new Error('Showcase failed')):setTimeout(check,25);check();})`);
+      const shots = process.argv.find(arg => arg.startsWith('--smoke-shots='))?.slice('--smoke-shots='.length);
+      const only = process.argv.find(arg => arg.startsWith('--smoke-only='))?.slice('--smoke-only='.length)?.split(',');
+      const shotAt: Record<string, number> = { peek: 700, curious: 400, bow: 900, touchdown: 300, drained: 900, shimmy: 500, crouch: 200, look: 300, facepalm: 900, salute: 800, glare: 700, huff: 900, overheat: 300, stretch: 900, flinch: 150, hop: 300, jazz: 900, headbang: 1200, airguitar: 1000, cannon: 1500, sneeze: 1700, boombox: 800, snack: 900, coffee: 1500, squeaker: 900, selfie: 900, shades: 1800, balloon: 2000, crashout: 1300, boo: 800, cartwheel: 550, backflip: 700, tantrum: 900, glitchstorm: 800, moonwalk: 1400, robot: 900 };
+      const ids: string[] = only ?? await window.webContents.executeJavaScript('window.__showcase.ids');
+      for (const id of ids) {
+        const started = Date.now();
+        const play = window.webContents.executeJavaScript(`(async()=>{const s=window.__showcase;const e=s.entries.find(x=>x.id===${JSON.stringify(id)});if(!e)throw new Error('unknown');const ok=await s.show(e);const c=s.capri;if(c.sprite.gl.isContextLost())throw new Error('gl lost');return ok;})()`);
+        if (shots && shotAt[id]) { await window.webContents.executeJavaScript(`new Promise(resolve=>{const c=window.__showcase.capri;const check=()=>(c.act?.player.name===${JSON.stringify(id)}||c.stance===${JSON.stringify(id)})?resolve(true):setTimeout(check,10);check();})`); await new Promise(resolve => setTimeout(resolve, shotAt[id])); await writeFile(path.join(shots, `${id}.png`), (await window.webContents.capturePage()).toPNG()); }
+        const ok = await play;
+        console.log(`SHOWCASE_STEP:${ok ? 'ok' : 'FAIL'}:${id}:${Date.now() - started}ms`);
+        if (!ok) throw new Error(`Showcase step failed: ${id}`);
+      }
+      const stats = await window.webContents.executeJavaScript(`(async()=>{const s=window.__showcase,c=s.capri;s.antics.enable(false);s.antics.stop();c.nextMove=Infinity;await s.reset();c.setMode('idle');c.nextTwitch=Infinity;c.nextShed=Infinity;const measure=async ms=>{const a={...c.sprite.stats};await new Promise(r=>setTimeout(r,ms));return {frames:c.sprite.stats.frames-a.frames,draws:c.sprite.stats.draws-a.draws}};await new Promise(r=>setTimeout(r,500));const idle=await measure(3000);c.setMode('idle');const held=c.perform('facepalm',1);await new Promise(r=>setTimeout(r,150));const act=await measure(1800);await held;return {idle,act}})()`);
+      console.log('SHOWCASE_IDLE_STATS:' + JSON.stringify(stats));
+      console.log('SHOWCASE_SMOKE_OK:' + ids.length);
+      app.quit();
+    }
+    return;
+  }
   if ((!smoke && !process.argv.includes('--art-preview')) || process.argv.includes('--smoke-overlay')) {
+    const openShowcase = createShowcase();
     let openBoard:undefined|(()=>void),openAssistant:undefined|(()=>void);
-    const companion = await createCompanion(smoke,pack.descriptor,smoke?undefined:()=>openBoard?.(),smoke?undefined:()=>openAssistant?.());
+    const companion = await createCompanion(smoke,pack.descriptor,smoke?undefined:()=>openBoard?.(),smoke?undefined:()=>openAssistant?.(),smoke?undefined:()=>{openShowcase();});
     if(!smoke){const demo=process.argv.includes('--agent-demo')?await (await import('./t3/demo')).demoConnection():undefined;const board=await createAgentPanel(companion,demo);openBoard=board.show;if(demo)board.show();const {createAssistantPanel}=await import('./windows/assistant-panel');const assistant=await createAssistantPanel(companion,board);openAssistant=assistant.show;}
     if(smoke&&process.argv.includes('--smoke-assistant')){const {assistantSmoke}=await import('./assistant/smoke');await assistantSmoke(companion);app.quit();return;}
     if(smoke&&process.argv.includes('--smoke-agent')){const {agentSmoke}=await import('./agent/smoke');await agentSmoke(companion);app.quit();return;}

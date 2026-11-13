@@ -2,20 +2,29 @@ export interface Candidate { readonly name: string; readonly duration: number; r
 type Active = { readonly name: string; readonly runId: number; readonly startedAt: number; readonly endsAt: number; readonly recent: readonly string[] };
 export type MotionState = { readonly tag: 'Waiting'; readonly nextAt: number; readonly recent: readonly string[] }
   | ({ readonly tag: 'Playing' } & Active) | ({ readonly tag: 'Fading'; readonly until: number } & Active);
-export type MotionInput = { readonly tag: 'Pulse'; readonly now: number; readonly runId: number; readonly choice: number; readonly eligible: boolean; readonly quiet: boolean; readonly candidates: readonly Candidate[] }
+// `delay` is a random unit: how long she rests before the next clip may start.
+export type MotionInput = { readonly tag: 'Pulse'; readonly now: number; readonly runId: number; readonly choice: number; readonly delay: number; readonly eligible: boolean; readonly quiet: boolean; readonly candidates: readonly Candidate[] }
+  | { readonly tag: 'Requested'; readonly now: number; readonly runId: number; readonly clip: Candidate }
   | { readonly tag: 'Stop'; readonly now: number }
-  | { readonly tag: 'Ended'; readonly runId: number; readonly now: number };
+  | { readonly tag: 'Ended'; readonly runId: number; readonly now: number; readonly delay: number };
 export type MotionCommand = { readonly tag: 'ScheduleEnd'; readonly runId: number; readonly afterMs: number };
+// Fidgets come unevenly: a fixed gap reads as a metronome.
+export const REST_RANGE_MS: readonly [number, number] = [3500, 12000];
+const unit=(value:number)=>Number.isFinite(value)?Math.max(0,Math.min(1,value)):0.5;
+export const restAfter=(delay:number)=>REST_RANGE_MS[0]+(REST_RANGE_MS[1]-REST_RANGE_MS[0])*unit(delay);
 export function stepMotion(state: MotionState,input: MotionInput): {state:MotionState;commands:MotionCommand[]} {
   const unchanged={state,commands:[]};
   switch(input.tag) {
+    case 'Requested':
+      if(state.tag!=='Waiting')return unchanged;
+      return {state:{tag:'Playing',name:input.clip.name,runId:input.runId,startedAt:input.now,endsAt:input.now+input.clip.duration*1000,recent:[...state.recent,input.clip.name].slice(-3)},commands:[]};
     case 'Stop':
       return state.tag!=='Playing'?unchanged:{state:{...state,tag:'Fading',until:input.now+120},commands:[{tag:'ScheduleEnd',runId:state.runId,afterMs:120}]};
     case 'Ended':
-      return state.tag==='Waiting'||state.runId!==input.runId?unchanged:{state:{tag:'Waiting',recent:state.recent,nextAt:input.now+5000},commands:[]};
+      return state.tag==='Waiting'||state.runId!==input.runId?unchanged:{state:{tag:'Waiting',recent:state.recent,nextAt:input.now+restAfter(input.delay)},commands:[]};
     case 'Pulse': {
       if(state.tag!=='Waiting') {
-        if(input.now>=state.endsAt || (state.tag==='Fading'&&input.now>=state.until)) return {state:{tag:'Waiting',recent:state.recent,nextAt:input.now+5000},commands:[]};
+        if(input.now>=state.endsAt || (state.tag==='Fading'&&input.now>=state.until)) return {state:{tag:'Waiting',recent:state.recent,nextAt:input.now+restAfter(input.delay)},commands:[]};
         if(!input.eligible || (input.quiet&&!input.candidates.find(c=>c.name===state.name)?.subtle)) return stepMotion(state,{tag:'Stop',now:input.now});
         return unchanged;
       }

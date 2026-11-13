@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src art:; img-src art:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capri Showcase</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<main id="stage" aria-label="Pretend desktop">
+  <header id="now"><h1 id="now-title">Capri Showcase</h1><p id="now-about">The real character on a pretend desktop. Drag her, throw her, pet her, or poke her fast.</p></header>
+  <div id="window" aria-hidden="true"><div class="bar"><i></i><i></i><i></i><span>definitely-important.txt</span></div><p>A pretend window. She can sit on it, lie on it, possess it, and fall off when it closes.</p></div>
+  <div id="taskbar" aria-hidden="true"></div>
+</main>
+<div id="capri"><canvas id="sprite" aria-label="Capri"></canvas></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<canvas id="compact" hidden></canvas>
+<aside id="dock">
+  <div class="top">
+    <p class="eyebrow">CAPRI COMPANION</p>
+    <div class="actions"><button id="tour" class="primary">Play everything</button><span id="progress"></span></div>
+    <div class="toggles">
+      <label><input type="checkbox" id="antics" checked> Antics</label>
+      <label><input type="checkbox" id="sound"> Sound</label>
+      <label><input type="checkbox" id="reduced"> Reduced motion</label>
+      <span id="stats" title="Held drawings skip the GPU"></span>
+    </div>
+    <input id="filter" type="search" placeholder="Search everything she can do" aria-label="Search">
+  </div>
+  <nav id="list"></nav>
+</aside>
+<script src="showcase.js"></script>
+</body></html>

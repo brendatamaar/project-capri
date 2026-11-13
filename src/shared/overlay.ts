@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type { Settings, Action } from '../core/companion';
 export const settingsSchema = z.object({
   bond:z.boolean().default(false),jealousy:z.boolean().default(false),checkins:z.boolean().default(false),cursorRide:z.boolean().default(false),miniPlayer:z.boolean().default(false),dance:z.boolean().default(false),clones:z.boolean().default(false),chaos:z.boolean().default(false),
+  // Playful and Chaos were merged into one switch; earlier saved settings read as on or off.
+  antics:z.preprocess(value=>value==='playful'||value==='chaos'?true:value==='off'?false:value,z.boolean()).default(true),
   scale: z.number().finite().min(0.3).max(1.2).default(0.6), quiet: z.boolean().default(false),
   stowed: z.boolean().default(false), motion: z.enum(['auto', 'full', 'reduced']).default('auto'),
   fps: z.union([z.literal(30), z.literal(60)]).default(60),

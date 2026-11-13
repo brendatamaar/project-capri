@@ -89,6 +89,8 @@ async function boot() {
     root: document.getElementById('capri'),
     canvas: document.getElementById('sprite'),
     image: art.image,
+    views: art.views,
+    poses: art.poses,
     fx,
     voice,
   });

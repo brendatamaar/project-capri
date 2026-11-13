@@ -17,10 +17,10 @@ async function boot() {
   }));
   console.debug('ART_PREVIEW:image-loaded');
   const canvas = document.querySelector<HTMLCanvasElement>('#sprite')!;
-  const sprite = new SpriteRenderer(canvas, art.image);
+  const sprite = new SpriteRenderer(canvas, art.image, art.views);
   console.debug('ART_PREVIEW:shader-ready');
   sprite.resize(0.8);
-  sprite.draw({ seed: 0, boil: 0, hair: 0, head: 0, mane: 0, armL: 0, armR: 0, longL: 1, longR: 1,
+  sprite.draw({ seed: 0, boil: 0, hair: 0, head: 0, mane: 0, armL: -0.85, armR: -0.85, elbowL: -0.22, elbowR: -0.31, longL: 1, longR: 1,
     sit: 0, bend: 0, kickL: 0, kickR: 0, smear: [0, 0], echo: [0, 0], glitch: 0, glitchSeed: 0,
     split: 0, collapse: 0, dissolve: 0, sparkle: 0, grade: 0, sil: [0, 0, 0], silAmount: 0,
     misreg: [0, 0], alpha: 1 });

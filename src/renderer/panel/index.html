@@ -1,9 +1,50 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Capri · Agent board</title><link rel="stylesheet" href="style.css"></head>
-<body><header><h1>Agent board</h1><span id="status" role="status"></span><button id="quiet" type="button">Quiet</button><button id="disconnect" type="button">Disconnect</button></header>
-<p id="notice">Monitoring only · Respond to requests in T3Code.</p><p id="warning" role="alert"></p>
-<details id="connection"><summary>T3Code connection settings</summary><p>Create a pairing code in your local T3Code instance with orchestration:read scope.</p>
-<form id="pair"><label>Local server <input id="address" required value="http://127.0.0.1:3773" autocomplete="off"></label><label>Pairing code <input id="credential" type="password" required autocomplete="off"></label><button id="connect" type="submit">Connect</button></form><p id="error" role="alert"></p></details>
-<main><section id="approval" aria-label="Oldest blocking request" hidden></section><section aria-label="Threads"><h2>Threads</h2><div id="threads"></div></section><section aria-label="Provider usage"><h2>Provider usage</h2><div id="limits"></div></section></main>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="brand">
+      <h1>Agent board</h1>
+      <p id="notice" class="subtle"></p>
+    </div>
+    <div class="controls">
+      <span id="status" class="status" role="status" data-tone="off"></span>
+      <button id="quiet" class="btn" type="button">Quiet: off</button>
+      <button id="disconnect" class="btn btn-ghost" type="button">Disconnect</button>
+    </div>
+  </header>
+
+  <p id="warning" class="banner" role="alert" hidden></p>
+
+  <details id="connection" class="card connection">
+    <summary><span id="connection-summary">T3Code connection</span></summary>
+    <div class="connection-body">
+      <ol class="steps">
+        <li>In a terminal, run <code>t3 pair --scope orchestration:read</code></li>
+        <li>Paste the pairing code below. It expires after 5 minutes.</li>
+      </ol>
+      <p class="subtle small">If <code>t3</code> is not found, run <code>%USERPROFILE%\.t3\bin\t3.cmd pair --scope orchestration:read</code> instead.</p>
+      <form id="pair" class="pair-form">
+        <label>Local server <input id="address" required value="http://127.0.0.1:3773" autocomplete="off" spellcheck="false"></label>
+        <label>Pairing code <input id="credential" type="password" required autocomplete="off" spellcheck="false"></label>
+        <button id="connect" class="btn btn-primary" type="submit">Connect</button>
+      </form>
+      <p id="error" class="error" role="alert"></p>
+    </div>
+  </details>
+
+  <main>
+    <section id="summary" class="stats" aria-label="Overview" hidden></section>
+    <section id="approval" class="priority" aria-label="Oldest blocking request" hidden></section>
+    <section aria-label="Threads">
+      <h2>Threads</h2>
+      <div id="threads"></div>
+    </section>
+    <section id="usage" aria-label="Provider usage">
+      <h2>Provider usage</h2>
+      <div id="limits" class="limits"></div>
+    </section>
+  </main>
+</div>
 <script src="panel.js"></script></body></html>

@@ -10,7 +10,7 @@ function render(v:FunView){current=v;$('bond-status').textContent=`Bond ${v.sett
 }
 $('fun-settings').addEventListener('input',()=>edited=true);$('fun-settings').onsubmit=async event=>{event.preventDefault();if(!current)return;const settings=Object.fromEntries(Object.keys(current.settings).map(key=>[key,($('fun-'+key) as HTMLInputElement).checked]));await act({tag:'Configure',settings});edited=false;render(await host.view());};
 $('stop-fun').onclick=()=>{edited=false;void act({tag:'StopFun'});};$('reset-bond').onclick=()=>{if(confirm('Reset local bond progress to zero?'))void act({tag:'ResetBond'});};
-for(const [id,kind] of [['fun-rival','Rival'],['fun-chaos','Insult'],['fun-calm','Apology']] as const)$(id).onclick=()=>void act({tag:'Signal',kind});
+for(const [id,kind] of [['fun-rival','Rival'],['fun-chaos-preview','Insult'],['fun-calm','Apology']] as const)$(id).onclick=()=>void act({tag:'Signal',kind});
 for(const operation of ['previous','playPause','next'])$('music-'+operation).onclick=()=>void act({tag:'Music',operation});
 $('list-job-targets').onclick=()=>void window.assistant.act({tag:'Send',text:'/action '+JSON.stringify({tag:'ListInputTargets'})});
 $('input-job').onsubmit=async event=>{event.preventDefault();try{const id=($('job-target') as HTMLSelectElement).value,steps=JSON.parse(($('job-steps') as HTMLTextAreaElement).value);await window.assistant.act({tag:'Send',text:'/action '+JSON.stringify({tag:'InputJob',id,steps})});}catch{$('fun-error').textContent='Invalid job. Use a listed target and 1–20 allowed steps.';}};

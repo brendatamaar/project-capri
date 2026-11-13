@@ -3,7 +3,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { readSettings, writeSettings } from '../../src/main/stores/companion-settings';
-import { patchSchema, desktopSchema } from '../../src/shared/overlay';
+import { patchSchema, settingsSchema, desktopSchema } from '../../src/shared/overlay';
 test('settings round trip and missing storage uses defaults', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'capri-settings-'));
   try {
@@ -15,6 +15,16 @@ test('settings round trip and missing storage uses defaults', async () => {
     expect(JSON.parse(await readFile(path.join(root, 'companion.json'), 'utf8'))).toEqual(changed);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+test('antics is one switch, on by default, and earlier saved levels still load', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'capri-antics-'));
+  try { expect((await readSettings(root)).antics).toBe(true); } finally { await rm(root, { recursive: true, force: true }); }
+  expect(patchSchema.safeParse({ antics: false }).success).toBe(true);
+  expect(patchSchema.safeParse({ antics: 'maximum' }).success).toBe(false);
+  expect(settingsSchema.parse({ antics: 'chaos' }).antics).toBe(true);
+  expect(settingsSchema.parse({ antics: 'playful' }).antics).toBe(true);
+  expect(settingsSchema.parse({ antics: 'off' }).antics).toBe(false);
+});
+
 test('renderer cannot add agent settings, invalid scales, or privileged keys', () => {
   for (const value of [{ apiKeys: {} }, { scale: 0 }, { quiet: 'yes' }, { scale: Infinity }, { stowed: 1 }]) expect(patchSchema.safeParse(value).success).toBe(false);
 });

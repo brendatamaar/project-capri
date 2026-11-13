@@ -93,6 +93,14 @@ export class Voice {
       remind: () => this.remind(),
       jealous: () => this.hiss(),
       purr: () => this.purr(),
+      boing: () => this.boing(),
+      squeak: () => this.squeak(),
+      pop: () => this.pop(),
+      honk: () => this.honk(),
+      sneeze: () => this.sneeze(),
+      twang: () => this.twang(),
+      hic: () => this.hic(),
+      yawn: () => this.yawn(),
     }[cue];
     fn?.();
   }
@@ -237,6 +245,59 @@ export class Voice {
   }
 
   // the launch into the victory pose: a quick upward whoosh
+  // Antics: small synthesized novelty sounds.
+  boing() {
+    const t = this.ctx.currentTime;
+    const o = this.osc('sine', 140, t, 0.32, 0.11);
+    o.frequency.exponentialRampToValueAtTime(720, t + 0.09);
+    o.frequency.exponentialRampToValueAtTime(190, t + 0.3);
+  }
+
+  squeak() {
+    const t = this.ctx.currentTime;
+    const o = this.osc('triangle', 1250, t, 0.13, 0.08);
+    o.frequency.exponentialRampToValueAtTime(2300, t + 0.05);
+    o.frequency.exponentialRampToValueAtTime(980, t + 0.12);
+  }
+
+  pop() {
+    const t = this.ctx.currentTime;
+    const o = this.osc('sine', 620, t, 0.07, 0.11);
+    o.frequency.exponentialRampToValueAtTime(130, t + 0.06);
+    this.noiseBurst(t, 0.03, 0.05, 1200, 5000, 3);
+  }
+
+  honk() {
+    const t = this.ctx.currentTime;
+    for (const f of [233, 349]) this.osc('sawtooth', f, t, 0.3, 0.05);
+    this.noiseBurst(t, 0.1, 0.05, 300, 1400, 2);
+  }
+
+  sneeze() {
+    const t = this.ctx.currentTime;
+    this.noiseBurst(t, 0.24, 0.18, 2800, 700, 1.2);
+    const o = this.osc('square', 300, t, 0.1, 0.05);
+    o.frequency.exponentialRampToValueAtTime(90, t + 0.09);
+  }
+
+  twang() {
+    const t = this.ctx.currentTime;
+    const f = 165 * (1 + Math.floor(Math.random() * 3) / 4);
+    for (const h of [1, 2]) this.osc('sawtooth', f * h, t, 0.26, 0.04 / h);
+  }
+
+  hic() {
+    const t = this.ctx.currentTime;
+    const o = this.osc('sine', 520, t, 0.08, 0.09);
+    o.frequency.exponentialRampToValueAtTime(980, t + 0.05);
+  }
+
+  yawn() {
+    const t = this.ctx.currentTime;
+    const o = this.osc('triangle', 330, t, 0.9, 0.04);
+    o.frequency.exponentialRampToValueAtTime(150, t + 0.85);
+  }
+
   rise() {
     const t = this.ctx.currentTime;
     const o = this.osc('sawtooth', 160, t, 0.2, 0.07);

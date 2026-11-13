@@ -15,6 +15,7 @@ const helper=path.join('release/win-unpacked/resources/app.asar.unpacked/dist/ma
 if(!readFileSync(helper).equals(readFileSync('src/main/windows/read-only.ps1')))throw new Error('Packaged watcher mismatch');
 console.log('PACKAGE_OK: original placeholder, notices, and read-only helper; no private art or local secrets.');
 
+for(const file of ['dist/renderer/showcase/index.html','dist/renderer/showcase/showcase.js','dist/renderer/showcase/style.css'])asar.extractFile(archive,path.normalize(file));
 for(const file of ['dist/preload/panel.cjs','dist/renderer/panel/index.html','dist/renderer/panel/panel.js','dist/renderer/panel/style.css'])asar.extractFile(archive,path.normalize(file));
 const panel=asar.extractFile(archive,path.normalize('dist/renderer/panel/index.html')).toString();
 if(!panel.includes("default-src 'none'")||!panel.includes("script-src 'self'"))throw new Error('Packaged panel CSP missing');

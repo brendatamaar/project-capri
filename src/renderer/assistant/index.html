@@ -1,15 +1,276 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; media-src blob:"><title>Capri · Assistant</title><link rel="stylesheet" href="style.css"></head>
-<body><header><h1>Assistant</h1><span id="status" role="status"></span><button id="stop" type="button">Stop</button></header><p id="privacy"></p><p id="warning" role="alert"></p><p id="error" role="alert"></p>
-<details id="setup"><summary>Provider and privacy settings</summary><p>Offline commands work without a model. Choose Ollama or an OpenAI-compatible endpoint and its exact model ID. Cloud consent permits sending personality, preferences, approved memories and the recent conversation, including action results.</p>
-<form id="settings"><label>Provider <select id="kind"><option value="offline">Offline</option><option value="ollama">Ollama</option><option value="compatible">OpenAI-compatible</option></select></label><label>Base URL <input id="url" required value="http://127.0.0.1:11434" maxlength="2048"></label><p>Ollama: origin only. Compatible: include /v1 or the provider's API base path.</p><label>Model ID <input id="model" required value="local" maxlength="200"></label><label>API key (leave blank for keyless; saving replaces the previous key)<input id="key" type="password" autocomplete="off" maxlength="4096"></label><label><input id="cloud" type="checkbox"> I allow context and recent chat to be sent to this cloud endpoint.</label><label><input id="small" type="checkbox" checked> Use shortened context for a small model</label><button type="submit">Save provider</button><button id="forget" type="button">Forget provider and key</button></form><p id="context"></p>
-<p>Chat and action results are stored locally as plaintext in assistant/assistant.sqlite, up to 5000 exchanges. Search results are untrusted text. Memory edits always require a separate confirmation.</p><button id="clear" type="button">Delete saved transcript and clear chat</button><p id="clear-confirm" hidden>Delete all saved chat? <button id="clear-yes" type="button">Delete transcript</button><button id="clear-no" type="button">Cancel</button></p><button id="folder" type="button">Choose search folder</button><p id="search-folder"></p></details>
-<details><summary>Coding threads · separate operating permission</summary><p>Pair monitoring on the Agent board first. This optional session-only pairing requests orchestration:read and orchestration:operate. It is high privilege and can start coding agents. Each start or steer still requires an exact confirmation. Capri creates Supervised threads only.</p><form id="operations"><label>Local T3Code origin <input id="t3-origin" value="http://127.0.0.1:3773" required></label><label>Operating pairing code<input id="t3-code" type="password" autocomplete="off" required></label><button type="submit">Pair operations for this session</button><button id="forget-operations" type="button">Forget operations</button></form><p id="operation-status"></p>
-<form id="start-thread"><h2>Start a coding thread</h2><label>Project<select id="project"></select></label><label>Provider instance ID<input id="provider" value="codex" required maxlength="200"></label><label>Model ID<input id="thread-model" required maxlength="200"></label><label>Title<input id="thread-title" required maxlength="200"></label><label>Initial prompt<textarea id="thread-prompt" required maxlength="16000"></textarea></label><button type="submit">Review new Supervised thread</button></form>
-<form id="steer"><h2>Steer an active Supervised run</h2><label>Thread<select id="thread"></select></label><label>Steering text<textarea id="steer-text" required maxlength="16000"></textarea></label><button type="submit">Review steering request</button></form></details>
-<details><summary>Voice and screen · off by default</summary>
-<form id="media-settings"><label>Voice mode<select id="media-mode"><option value="typed">Typed only · microphone and speech disabled</option><option value="local">Local · Kokoro / Parakeet</option><option value="custom">Custom compatible services</option><option value="cloud">Cloud compatible services</option></select></label>
-<label>Speech API base URL<input id="media-tts" value="http://127.0.0.1:8880/v1"></label><label>Transcription API base URL<input id="media-stt" value="http://127.0.0.1:8000/v1"></label><label>Speech model<input id="media-ttsModel" value="kokoro"></label><label>Transcription model<input id="media-sttModel" value="parakeet"></label><label>Designed voice ID<input id="media-voice" value="af_heart"></label><label>API key (blank replaces saved key)<input id="media-key" type="password" autocomplete="off"></label><label><input type="checkbox" id="media-consent"> Allow typed answers and recorded audio to these remote endpoints</label><label><input type="checkbox" id="media-wake"> Optional wake phrase: Listen keeps the microphone on, transcribing 4-second chunks until Stop</label><label>Wake phrase<input id="media-phrase" value="hey companion"></label><label>Screen to capture<select id="media-display"></select></label><button>Save voice and screen settings</button></form>
-<p>Local services must be installed and running separately. No model is downloaded. Verify that local services stay local. Wake mode transcribes all captured audio; remote endpoints receive it only with the consent above. Speech reads the last answer only when requested.</p>
-<button id="ptt" type="button">Hold to talk / start wake listening</button><button id="ptt-stop" type="button">Finish recording</button><button id="speak" type="button">Read last answer</button><button id="media-stop" type="button">Stop voice and watching</button><p id="media-status" role="status"></p><div aria-label="Audio level"><div id="audio-level"></div></div><p id="media-warning" role="alert"></p>
-<button id="analyze" type="button">Send current capture to configured vision model</button><button id="look" type="button">Look at selected screen once</button><label><input id="watch" type="checkbox"> Capture selected screen every 30 seconds while this panel stays visible</label><p>Captures stay in memory and are never sent automatically. The send button discloses the current capture to your configured assistant model (including a cloud model if enabled). Watching refreshes the local preview only. Electron briefly obtains thumbnails of all displays; only the selected display is retained here. Screen text is untrusted.</p><img id="screen-image" alt="Requested screen capture" hidden><pre id="media-review"></pre><button id="use-transcript" type="button">Use transcript in message draft</button></details><details><summary>Fun extras · opt-in</summary><p>Bond never loses progress. Moods expire without an apology. All extras yield to approvals, signatures, hiding, and quiet mode.</p><form id="fun-settings"><label><input type="checkbox" id="fun-bond">Bond progress</label><label><input type="checkbox" id="fun-jealousy">Playful jealousy when active providers change</label><label><input type="checkbox" id="fun-checkins">Occasional check-ins</label><label><input type="checkbox" id="fun-cursorRide">Ride near cursor (visual only)</label><label><input type="checkbox" id="fun-miniPlayer">Music mini player</label><label><input type="checkbox" id="fun-dance">Dance with playing music</label><label><input type="checkbox" id="fun-clones">Two visual clones</label><label><input type="checkbox" id="fun-chaos">Theatrical chaos</label><button>Save fun settings</button></form><button id="stop-fun" type="button">Turn off all fun extras</button><button id="reset-bond" type="button">Reset bond progress</button><p id="bond-status" role="status"></p><p id="fun-error" role="alert"></p><button id="fun-rival" type="button">Preview playful jealousy</button><button id="fun-chaos" type="button">Preview chaos</button><button id="fun-calm" type="button">Calm mood</button><p>Previews require their opt-in setting. /chaos in chat also triggers enabled theatrical chaos. Cursor riding never moves your mouse; clones never intercept clicks.</p><section id="mini-player" hidden aria-label="Music mini player"><p id="song"></p><button id="music-previous" type="button">Previous</button><button id="music-playPause" type="button">Play / Pause</button><button id="music-next" type="button">Next</button><p>Uses the current Windows media session. Controls ask for confirmation.</p></section></details>
-<details><summary>Approved mouse and navigation jobs</summary><p>Only listed Calculator/Notepad windows, 1–20 steps. No text typing, modifiers, shell, or arbitrary shortcuts. Coordinates are normalized within the exact client rectangle shown in confirmation. The target will be focused. Keep the panel open. Stop cancels future input; completed clicks cannot be undone.</p><p id="job-stop"></p><button id="list-job-targets" type="button">Review listing eligible input targets</button><form id="input-job"><label>Listed target<select id="job-target"></select></label><label>Exact steps (JSON)<textarea id="job-steps" required maxlength="8000">[{"tag":"Move","x":0.5,"y":0.5},{"tag":"Key","key":"Left"}]</textarea></label><p>Move/Click: x,y from 0 to 1. Key: Left, Right, Up, Down, Tab, Escape, Home, End. Each native step revalidates the process, foreground window and geometry. Focus/geometry changes or held modifiers stop the job.</p><button>Review exact input job</button></form></details><main><section id="request" hidden aria-label="Confirm exact action"><h2>Review this action</h2><p>No action has run. Confirm within 60 seconds. Hiding the panel, Stop, fullscreen, or a pending agent approval cancels this card.</p><pre id="exact"></pre><button id="deny" type="button">Deny</button><button id="approve" type="button">Approve once</button></section><section id="alerts" aria-label="Reminders"></section><section><h2>Conversation</h2><div id="messages" aria-live="polite"></div><pre id="draft"></pre><p id="result" role="status"></p></section><form id="chat"><label>Your message<textarea id="message" required maxlength="16000" placeholder="Ask a question, or /help for offline actions"></textarea></label><button id="send" type="submit">Send</button><button id="help" type="button">Offline command help</button></form></main><script src="assistant.js"></script></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; media-src blob:">
+<title>Capri · Assistant</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="app">
+
+<header class="top">
+  <div class="brand">
+    <h1>Assistant</h1>
+    <p id="privacy" class="subtle"></p>
+  </div>
+  <div class="controls">
+    <span id="live" class="live" role="status" hidden></span>
+    <span id="status" class="status" role="status" data-tone="ok"></span>
+    <button id="stop" class="btn btn-danger" type="button">Stop</button>
+  </div>
+</header>
+
+<div class="banners">
+  <p id="warning" class="banner warn" role="alert" hidden></p>
+  <p id="error" class="banner bad" role="alert" hidden></p>
+</div>
+
+<!-- Action confirmation stays above the tabs so it is never hidden. -->
+<section id="request" class="review" hidden aria-label="Confirm exact action">
+  <h2>Review this action</h2>
+  <p class="subtle">No action has run. Confirm within 60 seconds. Hiding the panel, Stop, fullscreen, or a pending agent approval cancels this card.</p>
+  <pre id="exact"></pre>
+  <div class="row">
+    <button id="deny" class="btn" type="button">Deny</button>
+    <button id="approve" class="btn btn-primary" type="button">Approve once</button>
+  </div>
+</section>
+
+<nav class="tabs" role="tablist" aria-label="Assistant sections">
+  <button class="tab" role="tab" type="button" data-tab="chat" aria-selected="true">Chat</button>
+  <button class="tab" role="tab" type="button" data-tab="voice" aria-selected="false">Voice &amp; screen</button>
+  <button class="tab" role="tab" type="button" data-tab="coding" aria-selected="false">Coding threads</button>
+  <button class="tab" role="tab" type="button" data-tab="settings" aria-selected="false">Settings</button>
+  <button class="tab" role="tab" type="button" data-tab="extras" aria-selected="false">Extras</button>
+</nav>
+
+<div class="panels">
+
+<!-- CHAT -->
+<section class="panel panel-chat" id="tab-chat" role="tabpanel" data-panel="chat">
+  <div id="alerts" class="alerts pinned" aria-label="Reminders"></div>
+  <div class="chat-scroll" id="chat-scroll">
+    <div id="messages" class="messages" aria-live="polite"></div>
+    <pre id="draft" class="draft"></pre>
+    <p id="result" class="result" role="status"></p>
+  </div>
+  <form id="chat" class="composer">
+    <label class="sr-only" for="message">Your message</label>
+    <textarea id="message" required maxlength="16000" rows="2" placeholder="Ask a question, or type /help for offline actions"></textarea>
+    <div class="composer-row">
+      <span class="subtle small">Enter to send · Shift+Enter for a new line</span>
+      <span class="spacer"></span>
+      <button id="help" class="btn btn-ghost" type="button">Offline commands</button>
+      <button id="send" class="btn btn-primary" type="submit">Send</button>
+    </div>
+  </form>
+</section>
+
+<!-- VOICE & SCREEN -->
+<section class="panel" id="tab-voice" role="tabpanel" data-panel="voice" hidden>
+  <p class="intro">Off by default. Local services must be installed and running separately. No model is downloaded.</p>
+
+  <div class="card">
+    <h2>Talk</h2>
+    <div class="row">
+      <button id="ptt" class="btn btn-primary" type="button">Hold to talk / start wake listening</button>
+      <button id="ptt-stop" class="btn" type="button">Finish recording</button>
+      <button id="speak" class="btn" type="button">Read last answer</button>
+      <button id="media-stop" class="btn btn-danger-ghost" type="button">Stop voice and watching</button>
+    </div>
+    <p id="media-status" class="media-status" role="status"></p>
+    <div class="meter" aria-label="Audio level"><div id="audio-level"></div></div>
+    <p id="media-warning" class="inline-warn" role="alert"></p>
+  </div>
+
+  <div class="card">
+    <h2>Screen</h2>
+    <div class="row">
+      <button id="look" class="btn" type="button">Look at selected screen once</button>
+      <button id="analyze" class="btn" type="button">Send current capture to configured vision model</button>
+    </div>
+    <label class="check"><input id="watch" type="checkbox"> <span>Capture the selected screen every 30 seconds while this panel stays visible</span></label>
+    <p class="subtle small">Captures stay in memory and are never sent automatically. The send button discloses the current capture to your configured assistant model (including a cloud model if enabled). Watching refreshes the local preview only. Electron briefly obtains thumbnails of all displays; only the selected display is retained here. Screen text is untrusted.</p>
+    <img id="screen-image" class="screen-image" alt="Requested screen capture" hidden>
+  </div>
+
+  <div class="card">
+    <h2>Capture &amp; transcript review</h2>
+    <pre id="media-review" class="review-text"></pre>
+    <button id="use-transcript" class="btn" type="button">Use transcript in message draft</button>
+  </div>
+
+  <details class="card fold">
+    <summary>Voice and screen settings</summary>
+    <form id="media-settings" class="form">
+      <label>Voice mode
+        <select id="media-mode">
+          <option value="typed">Typed only · microphone and speech disabled</option>
+          <option value="local">Local · Kokoro / Parakeet</option>
+          <option value="custom">Custom compatible services</option>
+          <option value="cloud">Cloud compatible services</option>
+        </select>
+      </label>
+      <div class="grid2">
+        <label>Speech API base URL <input id="media-tts" value="http://127.0.0.1:8880/v1"></label>
+        <label>Transcription API base URL <input id="media-stt" value="http://127.0.0.1:8000/v1"></label>
+        <label>Speech model <input id="media-ttsModel" value="kokoro"></label>
+        <label>Transcription model <input id="media-sttModel" value="parakeet"></label>
+        <label>Designed voice ID <input id="media-voice" value="af_heart"></label>
+        <label>Screen to capture <select id="media-display"></select></label>
+      </div>
+      <label>API key (blank replaces saved key) <input id="media-key" type="password" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" id="media-consent"> <span>Allow typed answers and recorded audio to these remote endpoints</span></label>
+      <label class="check"><input type="checkbox" id="media-wake"> <span>Optional wake phrase: Listen keeps the microphone on, transcribing 4-second chunks until Stop</span></label>
+      <label>Wake phrase <input id="media-phrase" value="hey companion"></label>
+      <p class="subtle small">Verify that local services stay local. Wake mode transcribes all captured audio; remote endpoints receive it only with the consent above. Speech reads the last answer only when requested.</p>
+      <div class="row"><button class="btn btn-primary">Save voice and screen settings</button></div>
+    </form>
+  </details>
+</section>
+
+<!-- CODING THREADS -->
+<section class="panel" id="tab-coding" role="tabpanel" data-panel="coding" hidden>
+  <p class="callout">Pair monitoring on the Agent board first. This optional session-only pairing requests <code>orchestration:read</code> and <code>orchestration:operate</code>. It is high privilege and can start coding agents. Each start or steer still requires an exact confirmation. Capri creates Supervised threads only.</p>
+
+  <div class="card">
+    <h2>1 · Pair operations</h2>
+    <form id="operations" class="form">
+      <div class="grid2">
+        <label>Local T3Code origin <input id="t3-origin" value="http://127.0.0.1:3773" required></label>
+        <label>Operating pairing code <input id="t3-code" type="password" autocomplete="off" required></label>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Pair operations for this session</button>
+        <button id="forget-operations" class="btn btn-ghost" type="button">Forget operations</button>
+      </div>
+    </form>
+    <p id="operation-status" class="subtle"></p>
+  </div>
+
+  <div class="card">
+    <h2>2 · Start a coding thread</h2>
+    <form id="start-thread" class="form">
+      <div class="grid2">
+        <label>Project <select id="project"></select></label>
+        <label>Provider instance ID <input id="provider" value="codex" required maxlength="200"></label>
+        <label>Model ID <input id="thread-model" required maxlength="200"></label>
+        <label>Title <input id="thread-title" required maxlength="200"></label>
+      </div>
+      <label>Initial prompt <textarea id="thread-prompt" required maxlength="16000"></textarea></label>
+      <div class="row"><button class="btn btn-primary" type="submit">Review new Supervised thread</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>3 · Steer an active Supervised run</h2>
+    <form id="steer" class="form">
+      <label>Thread <select id="thread"></select></label>
+      <label>Steering text <textarea id="steer-text" required maxlength="16000"></textarea></label>
+      <div class="row"><button class="btn btn-primary" type="submit">Review steering request</button></div>
+    </form>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section class="panel" id="tab-settings" role="tabpanel" data-panel="settings" hidden>
+  <div class="card">
+    <h2>Model provider</h2>
+    <p class="subtle">Offline commands work without a model. Choose Ollama or an OpenAI-compatible endpoint and its exact model ID. Cloud consent permits sending personality, preferences, approved memories and the recent conversation, including action results.</p>
+    <form id="settings" class="form">
+      <label>Provider
+        <select id="kind">
+          <option value="offline">Offline</option>
+          <option value="ollama">Ollama</option>
+          <option value="compatible">OpenAI-compatible</option>
+        </select>
+      </label>
+      <div class="grid2">
+        <label>Base URL <input id="url" required value="http://127.0.0.1:11434" maxlength="2048"></label>
+        <label>Model ID <input id="model" required value="local" maxlength="200"></label>
+      </div>
+      <p class="subtle small">Ollama: origin only. Compatible: include /v1 or the provider's API base path.</p>
+      <label>API key (leave blank for keyless; saving replaces the previous key) <input id="key" type="password" autocomplete="off" maxlength="4096"></label>
+      <label class="check"><input id="cloud" type="checkbox"> <span>I allow context and recent chat to be sent to this cloud endpoint.</span></label>
+      <label class="check"><input id="small" type="checkbox" checked> <span>Use shortened context for a small model</span></label>
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Save provider</button>
+        <button id="forget" class="btn btn-ghost" type="button">Forget provider and key</button>
+      </div>
+    </form>
+    <p id="context" class="subtle small"></p>
+  </div>
+
+  <div class="card">
+    <h2>Search folder</h2>
+    <p id="search-folder" class="path"></p>
+    <div class="row"><button id="folder" class="btn" type="button">Choose search folder</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Saved chat</h2>
+    <p class="subtle">Chat and action results are stored locally as plaintext in assistant/assistant.sqlite, up to 5000 exchanges. Search results are untrusted text. Memory edits always require a separate confirmation.</p>
+    <div class="row"><button id="clear" class="btn btn-danger-ghost" type="button">Delete saved transcript and clear chat</button></div>
+    <p id="clear-confirm" class="confirm" hidden>
+      <span>Delete all saved chat?</span>
+      <button id="clear-yes" class="btn btn-danger" type="button">Delete transcript</button>
+      <button id="clear-no" class="btn" type="button">Cancel</button>
+    </p>
+  </div>
+</section>
+
+<!-- EXTRAS -->
+<section class="panel" id="tab-extras" role="tabpanel" data-panel="extras" hidden>
+  <div class="card">
+    <h2>Fun extras · opt-in</h2>
+    <p class="subtle">Bond never loses progress. Moods expire without an apology. All extras yield to approvals, signatures, hiding, and quiet mode.</p>
+    <form id="fun-settings" class="form">
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="fun-bond"> <span>Bond progress</span></label>
+        <label class="check"><input type="checkbox" id="fun-jealousy"> <span>Playful jealousy when active providers change</span></label>
+        <label class="check"><input type="checkbox" id="fun-checkins"> <span>Occasional check-ins</span></label>
+        <label class="check"><input type="checkbox" id="fun-cursorRide"> <span>Ride near cursor (visual only)</span></label>
+        <label class="check"><input type="checkbox" id="fun-miniPlayer"> <span>Music mini player</span></label>
+        <label class="check"><input type="checkbox" id="fun-dance"> <span>Dance with playing music</span></label>
+        <label class="check"><input type="checkbox" id="fun-clones"> <span>Two visual clones</span></label>
+        <label class="check"><input type="checkbox" id="fun-chaos"> <span>Theatrical chaos</span></label>
+      </div>
+      <div class="row"><button class="btn btn-primary">Save fun settings</button></div>
+    </form>
+    <div class="row">
+      <button id="stop-fun" class="btn" type="button">Turn off all fun extras</button>
+      <button id="reset-bond" class="btn btn-danger-ghost" type="button">Reset bond progress</button>
+    </div>
+    <p id="bond-status" class="bond" role="status"></p>
+    <p id="fun-error" class="inline-warn" role="alert"></p>
+    <h3>Previews</h3>
+    <div class="row">
+      <button id="fun-rival" class="btn" type="button">Preview playful jealousy</button>
+      <button id="fun-chaos-preview" class="btn" type="button">Preview chaos</button>
+      <button id="fun-calm" class="btn" type="button">Calm mood</button>
+    </div>
+    <p class="subtle small">Previews require their opt-in setting. /chaos in chat also triggers enabled theatrical chaos. Cursor riding never moves your mouse; clones never intercept clicks.</p>
+    <section id="mini-player" class="mini-player" hidden aria-label="Music mini player">
+      <p id="song"></p>
+      <div class="row">
+        <button id="music-previous" class="btn" type="button">Previous</button>
+        <button id="music-playPause" class="btn" type="button">Play / Pause</button>
+        <button id="music-next" class="btn" type="button">Next</button>
+      </div>
+      <p class="subtle small">Uses the current Windows media session. Controls ask for confirmation.</p>
+    </section>
+  </div>
+
+  <details class="card fold">
+    <summary>Approved mouse and navigation jobs</summary>
+    <p class="subtle">Only listed Calculator/Notepad windows, 1–20 steps. No text typing, modifiers, shell, or arbitrary shortcuts. Coordinates are normalized within the exact client rectangle shown in confirmation. The target will be focused. Keep the panel open. Stop cancels future input; completed clicks cannot be undone.</p>
+    <p id="job-stop" class="subtle small"></p>
+    <div class="row"><button id="list-job-targets" class="btn" type="button">Review listing eligible input targets</button></div>
+    <form id="input-job" class="form">
+      <label>Listed target <select id="job-target"></select></label>
+      <label>Exact steps (JSON) <textarea id="job-steps" class="mono" required maxlength="8000">[{"tag":"Move","x":0.5,"y":0.5},{"tag":"Key","key":"Left"}]</textarea></label>
+      <p class="subtle small">Move/Click: x,y from 0 to 1. Key: Left, Right, Up, Down, Tab, Escape, Home, End. Each native step revalidates the process, foreground window and geometry. Focus/geometry changes or held modifiers stop the job.</p>
+      <div class="row"><button class="btn btn-primary">Review exact input job</button></div>
+    </form>
+  </details>
+</section>
+
+</div>
+</div>
+<script src="assistant.js"></script></body></html>

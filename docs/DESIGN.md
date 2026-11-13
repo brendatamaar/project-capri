@@ -26,6 +26,39 @@ are retained for M4; face support will need an art-independent implementation.
 
 ### M1 art boundary
 
+The static art preview displays relaxed arms at -0.85 radians. The standing
+exposure sheet uses the same resting angle with its existing small sway and
+unchanged exposure timing. The mochi-v1 source texture retains outstretched arms
+for extraction; explicit gesture arm angles still override the standing pose.
+Startup and the neutral pose fallback also use relaxed arms. There is no dedicated
+T-pose act; deliberate spread-arm gestures remain valid animation poses.
+
+Animation polish (2026-11-08): clip arm raises/spreads are positive additive
+rig-space rotations, with bounded right-arm wave offsets. Head yaw/pitch map to
+small in-plane head tilts because mochi-v1 has no independent 3D head axes.
+Breathing adds a small body lift. Clip sampling interpolates float around its 0.4
+neutral value, eliminating a nonzero hover offset when an absent key appears.
+Dance and chaos use a pure time-driven sampler with small radian offsets,
+alternating arms, delayed mane movement and intermittent chaos accents. The shell
+eases these layers in/out; quiet, reduced motion and ineligible states suppress
+them immediately. Interpretation clips also stop contributing under reduced motion.
+Exposure-sheet holds/cues remain on their existing clocks. Face-only expressions
+still require optional faceAnchor art and are not fabricated on the private base.
+
+Animation naturalness (2026-11-08): autonomous clip pulses use only idle-tagged
+clips; gestures and reactions start only when requested. Without a faceAnchor,
+face-only clips (fields such as blink/gaze/mouth with no rig field) are excluded
+from both pools instead of playing invisibly, and gaze also turns the head so
+glances read on the base sprite. A full clip arm raise maps to 2.3 radians over
+the -0.85 rest angle, clearing horizontal to overhead like the exposure sheets.
+Giggle couples a halved body bounce to an opposite head pitch. Victory, stretch
+and alarm sheets settle toward rest before cutting to the stance. Cartwheel and
+backflip holds lengthen near the inverted apex so rotation eases instead of
+turning at a constant rate. The live face blink uses the random Blinker
+(2-6 s intervals, occasional double blinks), not a fixed period. The unused
+Animator, ClipInstance, applyClip and REACTION_CLIPS exports are removed;
+springs remain in `core/motion/spring.ts`.
+
 The bootstrap now opens a static art preview using the retained `SpriteRenderer`.
 It registers `art://pack/` before creating a sandboxed window. The scheme serves
 only a public descriptor and allow-listed images from the selected pack. No
@@ -43,11 +76,13 @@ state machine: `isArtPath` is pure, `parseArtManifest` is the Zod boundary, and
 
 Manifests are capped at 16 KiB and parsed strictly: version 1, rig `mochi-v1`,
 name, required sprite, and optional `faces`, `cutins`, `intro` maps (32 entries
-each). Required sprites are PNG/JPEG at exactly 240 by 420 pixels, decoded by
+each), plus an optional `props` map whose keys must be the 13 `PROP_NAMES` in
+`shared/art.ts`; an unknown key rejects the manifest. Required sprites are PNG/JPEG at exactly 240 by 420 pixels, decoded by
 Electron before selection. Optional images support PNG/JPEG and WebP; WebP
 containers are checked in main, then decoded by Chromium. Missing/corrupt optional
 files are omitted, including browser decode failures. No `intro.grab` disables
-the intro; missing portraits hide the portrait, and missing cut-ins skip them.
+the intro; missing portraits hide the portrait, missing cut-ins skip them, and
+a missing prop keeps its code-drawn version.
 Optional intro cels continue to fall back to the grab cel in the retained FX code.
 
 All asset paths must be relative raster paths, with no dot segments, URL encoding,
@@ -74,6 +109,111 @@ Keep mochiiwuff's existing stance, acting, and effect code. Don't move `capri.js
 | `src/core/motion/clip.ts` | Clip, time, seed | Sampled `Params` | `sampleIsDeterministic`, `clipEndsNeutral` |
 | `src/core/motion/pose-map.ts` | `Params` | Sprite pose fields | `neutralMapsToNeutral`, `outputsStayClamped` |
 | `src/core/motion/mixer.ts` | Act pose, clip pose, weights | Final pose | `signatureActsWin`, `weightsStayBounded` |
+| `src/core/motion/variety.ts` | Pool, recent names, random unit | Next cycle or flourish, hold time | fresh pick never repeats a recent name, cycles never re-pick themselves |
+| `src/core/motion/expression.ts` | Face state, time, random units, what she is doing | Expression name | blinks stay short and never chain, moods only when free, flashes always end |
+| `src/core/motion/peek.ts` | Peek kind, view, scale, random units | Feet positions, facing, way-in steps, clip line | bust hides hips and legs, half peek straddles the edge, starts wholly out of view |
+
+### Antics, showcase and render savings (2026-11-08)
+
+`core/fun/antics.ts` is a pure director: `Resting | Performing`, inputs `Pulse`, `Poke`,
+`Finished` and `Stop`, one command `Perform{name, runId}`. Only eligible idle moments perform.
+Antics is a single on/off switch with gentle and wild antics in one pool. It waits 20-70 s and sometimes
+chains two more in a burst. Finishes carry their run id; a watchdog recovers after 20 s. Rapid pokes (3/5/8 within
+1.4 s each) become huff, tantrum and boo. A pending `NeedsYou`, quiet, paused, reduced motion, sleep,
+drag or any act suppresses it; approvals are untouched, and nothing acts on anything but her own body.
+
+Antics are exposure sheets in `acting.js`, plus two pose additions: `shift` slides her on screen, and
+`spins` turns her around her middle. Sheet cues (`fx.*`, `pop.*`, `prop.*`, `sfx.*`, `glitch`) go to
+`overlay/antics/antics.ts`. Props are baked once into an atlas of 256 px cells (`props.ts`): each cell
+is the pack's `props` image when it has one, otherwise the original code-drawn prop, so Pip and packs
+without props are unchanged. Pack cells are held larger and clear of her mane, since they can share its
+colours; code-drawn cells keep their original anchors. Word bursts and the joke error card stay code-drawn for every pack, as
+near-black and crimson shard panels with a violet offset. Effects are dropped under reduced motion.
+Idle life (breathing, weight shift, a slight lean to the pointer) is sampled on threes by
+`core/motion/playful.ts`.
+
+The showcase (`renderer/showcase`, tray or `npm run showcase`) runs the real character, FX and
+motion on a pretend desktop in its own sandboxed window with no preload. `core/showcase.ts` holds
+the catalog and a pure tour (`Idle | Playing`, stale `Done` ignored). "Beyond the stage" entries
+describe features outside the stage without demonstrating them.
+
+The rig has an elbow halfway down each arm (`elbowL/R`, or `elbows`/`elbow`/`elbowOff` in sheets). Positive
+folds the way the arm raises, negative folds down and in. A bent arm is two straight halves with a round
+cap at the joint, and `handPoint` keeps props and bolts on the real hand. Reaches stay straight unless a pose
+bends them, so pointing, zaps and aim calculations are unchanged.
+
+The standing body is rigged too: `waist` bends everything above it, `hipX` and `crouch` carry the pelvis, and
+`core/motion/legs.ts` solves thighs and knees so both feet stay planted. `thighL/R` swing a leg directly for
+air poses. Seated and lying poses keep their existing leg rig. A side peek pivots at the neck with the body laid
+out past the edge and the head counter-rotated upright, so only head and mane show.
+Joint follow-through (`core/motion/blend.ts`): the drawn pose is the target, and arms, elbows, lower legs,
+thighs, waist, bend, hipX, crouch and arm length follow it through critically damped springs. An act on the
+exposure clock follows crisply (`stepped`), an override such as lying down or pointing at a moving target
+follows `mixed`, and stance cycles and whatever carries over when an act ends or the stance changes follow `soft`,
+so stance changes no longer pop. Squash, lean, bob and mirroring stay exactly as drawn. Reduced motion bypasses it.
+The standing solver folds the legs toward the viewer: it returns a length scale for each thigh and shin besides the angles, the shader squashes each segment along its length (`uLegL/R`), and only 30% of the in-plane knee swing shows sideways (`KNEE_SPLAY`), eased in over the first 10 px of crouch (`SOFT_KNEE`). Solving the bend entirely in the screen plane threw both knees far out sideways. Feet stay planted exactly, and the pose grows out of the drawn knee offset so nothing pops at rest. The ledge going away from
+under a seated Capri plays `startle` first (a freeze with the legs still dangling), then she drops. Falling asleep
+on a ledge lies her down (`lounge`), and waking plays `wake`. The held `lounge` loop alternates two poses,
+coiled compact with a flared mane, folded legs and a tucked head, and sprawled flat and stretched long with the legs straight, both with a glitch echo. A pack may draw the two poses instead (`poses.loungeCoiled` / `poses.loungeSprawl`, both or neither, same 240x420 grid): the two pictures are variants, not a pair. Each lounge picks one at random and holds it. She never sits up facing the viewer first: `loungeOn` teleports her onto the ledge and `arrive` brings her in already in the pose, landing a little past it with a small squash (`LOUNGE_MOVES.settle`). Lying down from sitting (`lieDownDrawn`) is the same blink on her own seat. Done lounging on her own, she teleports away from the pose itself; only an act that needs her sitting plays the picture back up into the rig (`getUpDrawn`); the rig fields stay neutral under the picture. Each picture has its own layout (`LOUNGE_ART` in `capri.js`): coiled is upright, perched with her legs hanging; sprawl is drawn turned a quarter and turns back to lie along the ledge; each is lifted so its ledge line sits on the ledge, and the ledge clip is off so legs and mane hang over the edge. A pose picture is drawn flat (`uFlat`): the shader skips the arm zone, joints and mane warp, which only fit the sprite layout. Held, it shows clean; the cycle's two short drawings flicker a small glitch echo over it. Knocked down, she lies in the side view.
+Knocked-down placement rests on a body-only hull (`core/motion/contact.ts`): head, neck, shoulders, torso
+and legs around the head-feet axis. The mane and the outstretched rest arm stay in the full outline for wall
+bounces and sideways clamping, but never define the floor contact, so she lies on her body instead of
+floating on her hair.
+
+### Idle variety and partial-body peeks (2026-11-10)
+
+Standing is three looping cycles (`stand`, `standHip` with a hand on one hip, `standLoose` rocking foot to
+foot) and sitting is two (`sit`, `sitLean`). While she idles, `capri.js` moves to another cycle every 12-38 s
+(`core/motion/variety.ts`: `nextCycle`, `cycleHold`). It changes only on the first drawing of the current
+cycle, and every cycle starts with `bob` 0, so the float never jumps and the joints ease across on the `soft`
+follow. Reduced motion keeps the cycle she is in. The standing float holds at the top and bottom and passes
+quickly between (slow-in, slow-out) and takes just over two seconds.
+
+Idle flourishes come from `FLOURISHES` by stance through `pickFresh`, which skips the last four, so she does
+not repeat herself. New sheets: `wave`, `shrug`, `think`, `sway`, `scout`, `bounce` and seated `legswing`.
+Noticing the pointer sometimes waves instead of cocking her head. Idle life breathes in faster than out, and
+its weight shift is two incommensurate waves, so the overlay does not loop on the sheet's period.
+
+A peek is one of six kinds (`PEEK_KINDS`), chosen with the same fresh pick. `peekPlan` is pure geometry
+returning where her feet go, where they start, facing, direction, the way-in steps and an optional clip line:
+
+| Kind | Style | What shows | Cycle |
+| --- | --- | --- | --- |
+| `left`, `right`, `top` | `head` | Head and mane; body laid out past the edge, pivot at the neck | `peek` |
+| `lean-left`, `lean-right` | `half` | Upright on the floor with her middle on the edge; leans out from the waist | `peekHalf` |
+| `bottom` | `bust` | Head and shoulders over the floor line; nothing drawn below it | `peekBust` |
+
+The way in overshoots by 5-10% and settles. A bust clips the character root at the floor line (`clipEdge`,
+shared with lying on a ledge), and hit testing and the live face respect the same line, so what is hidden is
+not clickable. Leaving a peek, being picked up, and every other stance change clear the style and the clip.
+Peeks remain gated by the existing `peek` setting; no new setting, IPC, or command is added.
+
+### Expressions on the body sprite (2026-11-10)
+
+A pack may supply `expressions`: one picture of her face per name in `EXPRESSIONS` (neutral, blink, joy, laugh,
+smug, wink, wide, many, sleepy, pout, lookLeft, lookRight, talk), drawn over `faceAnchor`. The boundary
+(`main/art.ts`) accepts only those names, and serves none unless the pack has both a `faceAnchor` and a `neutral`.
+
+`core/motion/expression.ts` decides what shows. `stepFace` is a pure state machine, `Open | Blinking | Mood |
+Flash`, with inputs `Tick` (time, three random units, whether she is free to play) and `Flash` (an expression for
+at most 600 ms); it emits no commands. Blinks come every 2.2-6.5 s and last 110 ms, 15% doubled and never
+chained. While she idles, a mood (smug, wink, joy, a glance, a pout) shows for about a second every 9-26 s, and
+never in the first 3 s after she becomes free. `faceFor` then picks the expression for the drawing, in this order:
+a flash, asleep, the act or stance cycle (`ACT_FACE`), being petted, the playing clip's face fields, alert,
+speaking, a blink, a mood, a look toward a pointer well to one side, neutral. A blink shows through an act only
+when that act's eyes are open. `resolveExpression` falls back toward neutral for names a pack lacks.
+
+`overlay/face.ts` is the shell: it builds the atlas, supplies time and random units, flashes `many` on half of
+her glitch twitches, and writes the chosen cell to the pose. The renderer paints that cell into the front texture
+with a sub-image upload of the anchor rectangle, only when it changes. The shader is untouched (a second sampler
+stalled its compile), so the face bends, boils, smears and glitches with the rest of her at no per-frame cost.
+Side and back views are separate textures and never show it. Reduced motion keeps act-driven faces and drops
+blinks, moods and flashes. A pack with expressions does not get the generic face canvas; Pip has neither.
+
+Rendering: `SpriteRenderer.draw` skips the GPU when a drawing is unchanged, so held cels cost
+nothing and the loop returns whether it drew. WebGL buffers are only readable in the task that
+drew them, so clones copy only when `drewSprite` is set. Idle boil runs on threes. Below about 40 fps the
+frame loop waits on a timer and re-enters through one rAF; `kickLoop` cuts the wait when something starts.
 
 ### M2 companion boundary
 
@@ -119,8 +259,10 @@ fullscreen clears effects instead of maintaining a continuous full-screen draw.
 
 M4 uses only interpretation clips retained at M0. Sampling, mapping, additive mixing,
 and scheduling are pure. Scheduler states are Waiting, Playing, and Fading; Pulse
-inputs carry time, random choice, generated runId, eligibility, and quiet mode.
-Playing emits a 120 ms ScheduleEnd on Stop, then ignores stale Ended runIds.
+inputs carry time, random choice, a random rest delay, generated runId, eligibility, and quiet mode.
+Playing emits a 120 ms ScheduleEnd on Stop, then ignores stale Ended runIds. `Pulse` and `Ended`
+carry the delay: after a clip she rests 3.5-12 s (`restAfter`) instead of a fixed 5 s, so fidgets do not
+tick like a metronome. A clip's weight eases in and out over 0.2 s (`clipEnvelope`, smoothstep).
 Waiting avoids the last three clip names and quiet permits only subtle clips.
 Incoming signature acts wait for that bounded fade; act poses then bypass clip mixing.
 The optional faceAnchor rectangle is validated inside the 240x420 sprite. An original
@@ -568,13 +710,21 @@ Load order is the installed pack, the development pack, then the placeholder.
   "sprite": "sprite.png",
   "faces": {},
   "cutins": {},
-  "intro": {}
+  "intro": {},
+  "props": {},
+  "views": {}
 }
 ```
 
 Art packs use mochiiwuff's rig coordinates, including `NECK`, `SHOULDER_L`, `MANE`, and `HIP`. Generalizing the rig is out of scope. Missing optional assets disable that effect instead of failing startup.
 
-The placeholder must be an original construct with its own silhouette, colors, and name. It must not resemble Capri.
+The placeholder must be an original construct with its own silhouette, colors, and name. It must not resemble Capri. Its code-drawn `side` and `back` views keep rotation working without a private pack; `quarter` falls back to `side`.
+
+### Rotation views
+
+A pack may supply `side`, `quarter`, and `back` textures on the same 240x420 grid as the front sprite, with the same rig landmarks. The renderer uploads one texture per available view and binds the pose's `view` each drawing; missing views fall back toward front (`quarter` prefers `side`), and right-side views mirror the left through the canvas transform. Every exposure-sheet key that names a view is held like any other drawing field, so `turn` swings through quarter and side to a mirrored front while `spin` travels front, quarter, side, back, and back again.
+
+Both arms are always drawn from the front texture's arm zone, so view textures carry the front arms in that zone and no baked-in arms anywhere else: when an arm raises, the vacated zone samples the view body behind it, exactly as the front view does. Pack builders composite the front arm zone over their fitted views (see `armL` in `sprite.js`); views that are missing, unreadable, escaping, or not exactly 240x420 are omitted and the drawing falls back without failing the pack.
 
 ### Rendering layers
 

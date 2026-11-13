@@ -1,4 +1,5 @@
 import {installFun} from './fun';
+import {installAntics} from './antics/antics';
 // New companion-only wiring; the upstream app/brain/chat/setup entry is never imported.
 // @ts-expect-error Retained character implementation stays JavaScript.
 import { Capri } from '../js/capri.js';
@@ -9,6 +10,7 @@ import { Voice } from '../js/voice.js';
 // @ts-expect-error Retained motion preference helper stays JavaScript.
 import { reducedMotion } from '../js/util.js';
 import { loadArtImages } from '../js/art.js';
+import { installFace } from './face';
 import type { ArtDescriptor } from '../../shared/art';
 import type { OverlayHost, OverlayEvent } from '../../shared/overlay';
 import type { Settings } from '../../core/companion';
@@ -30,9 +32,12 @@ async function boot() {
   const fx = new FxLayer(document.querySelector('#fx'), { cutins: art.cutins, intro: art.intro });
   fx.resize(innerWidth, innerHeight);
   const voice = new Voice();
-  const capri = new Capri({ root, canvas, image: art.image, fx, voice });
+  const capri = new Capri({ root, canvas, image: art.image, views: art.views, poses: art.poses, fx, voice });
   const motion = installMotion(capri, pack);
+  const face = installFace(capri, pack, art.expressions, { reduced: () => reducedMotion.matches, quiet: () => preferences.quiet || preferences.paused });
   const fun=installFun(capri,canvas,root,v=>host.fun(v),()=>reducedMotion.matches);
+  let needsYou=false;
+  const antics=installAntics(capri,fx,voice,{reduced:()=>reducedMotion.matches,blocked:()=>needsYou||preferences.quiet||preferences.paused,props:art.props});
   // Disruptive features remain opt-in through validated preferences.
   capri.possessWindows = false; capri.wander = true; capri.nextGaze = Infinity; capri.uplinkDue = false;
   const compact = document.querySelector<HTMLCanvasElement>('#compact')!;
@@ -46,8 +51,9 @@ async function boot() {
   capri.onStow = showCompact; capri.onUnstow = hideCompact;
   capri.onDoze = (phase: string) => phase === 'start' ? showCompact() : hideCompact();
   capri.onMenu = () => host.menu();
-  capri.onClick = () => {host.fun({tag:'Click'}); capri.wake(); capri.perform('look'); };
+  capri.onClick = () => {host.fun({tag:'Click'}); capri.wake(); if(!antics.poke())capri.perform('look'); };
   let fullscreen = false;
+  let musicPlaying=false;
   let preferences=await host.settings();
   let screens=await host.screens();
   let desktop=await host.desktop();
@@ -63,7 +69,7 @@ async function boot() {
     finally { syncing = false; if (fullscreen) compact.hidden = true; }
   };
   const applySettings = (settings: Settings) => {
-    preferences=settings;fun.settings(settings);
+    preferences=settings;fun.settings(settings);antics.enable(settings.antics);antics.music(settings.dance&&musicPlaying);
     voice.configure({ muted: settings.quiet, volume: 0.5 });
     motion.setQuiet(settings.quiet);
     reducedMotion.setting = settings.motion;
@@ -79,7 +85,7 @@ async function boot() {
   };
   const applyHidden = (hidden: boolean) => {
     fullscreen = hidden; capri.suspended=hidden||preferences.paused;capri.setHidden(capri.suspended || capri.stowed || capri.dormant);
-    if(hidden)motion.pause();
+    if(hidden){motion.pause();antics.stop();}
     document.querySelector<HTMLElement>('#agent-caption')!.hidden=hidden||preferences.paused||!document.querySelector<HTMLElement>('#agent-caption')!.textContent;
     if (hidden) { compact.hidden = true; fx.clear(); document.querySelector<HTMLElement>('#fx')!.hidden = true; }
     else { document.querySelector<HTMLElement>('#fx')!.hidden = false; compact.hidden = !(capri.stowed || capri.dormant); }
@@ -129,19 +135,19 @@ async function boot() {
     else if(kind==='NeedsYou'&&!reduced&&capri.mouse)void capri.teleport({x:Math.max(80,Math.min(innerWidth-80,capri.mouse.x+100)),y:Math.max(160,Math.min(innerHeight-50,capri.mouse.y))}).then(()=>capri.perform('look'));
     else void capri.perform(reduced?'look':kind==='Done'?'victory':kind==='Failed'?'flinch':kind==='NeedsYou'?'look':'curious');
   };
-  const agentTimer=setInterval(()=>{processAgentReaction();fun.pulse();},500);
+  const agentTimer=setInterval(()=>{processAgentReaction();fun.pulse();antics.pulse();},500);
   window.addEventListener('beforeunload',()=>clearInterval(agentTimer));
   const receive = (event: OverlayEvent) => {
     switch (event.tag) {
       case 'fun':fun.frame(event);return;
-      case 'musicPlaying':fun.playing(event.playing);return;
+      case 'musicPlaying':musicPlaying=event.playing;fun.playing(event.playing);antics.music(preferences.dance&&event.playing);return;
       case 'audioLevel':capri.audioLevel=fullscreen||preferences.paused?0:event.level;return;
       case 'assistantPoint':stopGuide();pendingGuide={...event,until:performance.now()+5000};return;
       case 'assistantStop':stopGuide();return;
       case 'settings': applySettings(event.settings); return;
       case 'hidden': applyHidden(event.hidden); return;
       case 'agent':
-        if(agentPresence!==event.presence||agentActive!==event.active)pendingPresence=true;agentPresence=event.presence;agentActive=event.active;if(event.presence==='NeedsYou')fun.frame({tag:'fun',eligible:false,chaosUntil:0,caption:''});
+        if(agentPresence!==event.presence||agentActive!==event.active)pendingPresence=true;agentPresence=event.presence;agentActive=event.active;needsYou=event.presence==='NeedsYou';if(needsYou)antics.stop();if(event.presence==='NeedsYou')fun.frame({tag:'fun',eligible:false,chaosUntil:0,caption:''});
         agentCard=event.card;if(event.presence!=='NeedsYou'){if(pendingAgent?.kind==='NeedsYou')pendingAgent=null;if(capri.pointing&&!guideActive&&!capri.busy&&!capri.act)capri.stopPointing();}
         agentCaption.textContent=event.presence==='Thinking'?`${event.caption} · Thinking (15s+)`:event.caption;agentCaption.hidden=!event.caption||fullscreen||preferences.paused;return;
       case 'agentReaction':pendingAgent={kind:event.kind,until:performance.now()+5000};return;
@@ -186,8 +192,8 @@ async function boot() {
     if (onCompact(event.clientX,event.clientY)) { if (capri.dormant) capri.wake(); else void host.update({ stowed: false }); }
   });
   window.addEventListener('contextmenu', event => { event.preventDefault(); if (onCompact(event.clientX,event.clientY)) host.menu(); });
-  const pointer = setInterval(() => { void host.cursor().then(point => {fun.cursor(point);refresh(point.x,point.y);}); }, 300);
-  const follow=setInterval(()=>{void host.cursor().then(cursor=>{
+  const pointer = setInterval(() => { if(fullscreen||preferences.paused)return;void host.cursor().then(point => {fun.cursor(point);refresh(point.x,point.y);}); }, 300);
+  const follow=setInterval(()=>{if(!preferences.follow||preferences.paused)return;void host.cursor().then(cursor=>{
     const result=stepFollow(followState,{tag:'Pointer',current:screens.current,display:cursor.display,enabled:preferences.follow&&!preferences.paused,eligible:!capri.busy&&!capri.act&&!capri.dragging&&!capri.hidden&&!capri.stowed&&capri.mode!=='sleep'});
     followState=result.state;for(const command of result.commands)void goToScreen(command.display);
   });},2000);
@@ -196,7 +202,7 @@ async function boot() {
   if (smoke) {
     capri.wander = false; capri.nextTwitch = Infinity;
     capri.drawFrame();
-    window.__companionTest = { capri, hit, host, receive, processAgentReaction, fun };
+    window.__companionTest = { capri, hit, host, receive, processAgentReaction, fun, antics };
   } else if (!desiredStowed&&!preferences.paused) void capri.intro(capri.spot('post'), { label: 'hi', caption: pack.name });
   document.body.dataset.ready = 'true';
 }

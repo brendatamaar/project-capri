@@ -559,6 +559,90 @@ enabled. Mini player lives in the Assistant; dance uses playback state, not beat
 analysis. Clones are visual echoes, never agents. Product constraints take priority
 over broader reference inventory entries; those capabilities are not claimed.
 
+## Private base-art preparation (2026-11-08)
+
+- [x] Prepare an ignored, newly illustrated version-1 mochi-v1 base pack, retaining
+  high-resolution sources, reference provenance, notices and generation prompts privately.
+- [x] Inspect the 240x420 transparent texture with the unchanged renderer in neutral,
+  raised-arm and seated poses at approximately 250 pixels displayed height.
+- Pip remains the bundled fallback. No optional face, portrait, cut-in or intro
+  assets, renderer changes, or new runtime behavior are included.
+- Full private-pack animation and daily-use visual acceptance remain manual.
+- [x] Lower standing and art-preview arms to a relaxed resting pose, preserving
+  standing exposure timing and explicit gesture angles. Keep original private
+  texture backup and trim out-of-rig fingertip remnants exposed by lowered arms.
+
+## Animation polish (2026-11-08)
+- [x] Audit exposure sheets, interpretation clip mapping, and dance/chaos layers.
+- [x] Relax startup/fallback arms; retain purposeful spread-arm gestures.
+- [x] Fix reversed arm raises, missing wave/head motion and float entry offsets.
+- [x] Bound dance/chaos rotations and coordinate arm, mane and body movement.
+- [x] Add property checks and sample all clips/exposure sheets at 30 and 60 fps.
+- Face-only private expressions remain unavailable until a separate face pack is
+  requested; full daily-use visual acceptance remains manual.
+
+Verification: npm run check passes; 83 core/scaffold tests pass, including all
+clip samples and exposure sheets at 30/60 fps. Electron overlay (Pip and optional
+face), agent, and assistant/media/fun smoke tests pass. Private visual review
+covers standing, wave, stretch, nod, hair flick, tease, dance and chaos.
+The full suite also reports five failures outside the changed animation code:
+three Windows symlink permission failures, one assistant action timeout and a
+vendored T3 contract hash mismatch. Those files were not changed or tests weakened.
+Pip artwork is unchanged; private captures remain ignored; nothing is staged.
+
+## Animation naturalness (2026-11-08)
+- [x] Gate face-only clips out when the pack has no faceAnchor; map gaze to head motion.
+- [x] Restrict autonomous clip pulses to idle-tagged clips; gestures/reactions only when requested.
+- [x] Raise the clip arm ceiling past horizontal to overhead (2.3 rad over rest).
+- [x] Couple giggle's body bounce to head pitch at half amplitude.
+- [x] Add settle-to-rest keys to victory, stretch and alarm sheets; ease cartwheel/backflip rotation at the apex.
+- [x] Drive the live-face blink with the random Blinker; remove dead Animator/ClipInstance/applyClip/REACTION_CLIPS.
+- [x] Add property checks for arm ceiling, gaze, autonomous selection, giggle velocity and sheet settles.
+
+Verification: npm run check passes; 85 core tests and 124 core+scaffold tests pass, including new arm-ceiling, gaze, autonomous-selection, giggle-velocity and sheet-settle checks. Overlay smoke passes and the private motion review shows wave/stretch arms overhead instead of horizontal. Full npm test reports four failures in unrelated assistant contract tests (three Windows symlink EPERM, one assistant-action timeout), matching the pre-existing failures recorded below. Full daily-use visual acceptance remains manual.
+
+## Antics and showcase (2026-11-08)
+- [x] Audit render loop, FX and interval costs; compare against the three reference projects.
+- [x] Skip GPU draws for held cels; idle timer loop; remove per-frame layout and canvas reallocation.
+- [x] Add 27 antics with cued props, particles, word bursts and synthesized sounds.
+- [x] Add pure antics director with a single Antics switch and poke combos, suppressed by attention states.
+- [x] Add an elbow joint and review every arm pose in every exposure sheet.
+- [x] Add waist, pelvis, thigh and knee rig with planted-foot solving; re-pose all sheets.
+- [x] Make the side peek show only her head and mane.
+- [x] Add sandboxed showcase window with catalog, tour and pretend desktop.
+- [x] Pin vendored contract line endings so its byte hash check passes on Windows checkouts.
+- [x] Add an optional art-pack `props` map, with code-drawn props as the fallback.
+- [x] Restyle word bursts and the joke error card as shard panels.
+- [x] Fix the knocked-down (`ko`) arms, left on the pre-rest-pose scale so they stuck out in a T; lift the lounge pose (`LIE_LIFT` 18 to 34) so she rests on the ledge instead of sinking into it.
+- [x] Make the ledge lounge alternate only the two window-perch reference poses (tucked flare / extended sprawl) with a glitch-echo swap, stop sleep mode flattening them, and hold the showcase long enough to see both.
+- [x] Add an optional drawn-art `poses` map (`loungeCoiled`/`loungeSprawl`) so a pack can replace the rig-warped lounge with drawn pictures; private pack ships both, drawn to the window-perch reference poses.
+- [x] Rest knocked-down floor placement on a body-only hull (`core/motion/contact.ts`, pinned by `contact.test.ts`); the full outline still bounds flight bounces and sideways clamping. Mane and outstretched hand no longer prop her floating above the floor.
+- Manual: judge antics on the real desktop, at 30 and 60 fps, with private art and Pip.
+
+## Rotation views (2026-11-09)
+- [x] Fit generated side, three-quarter, and back views onto the mochi-v1 240x420 grid, with the front arms composited into the shared arm zone.
+- [x] Load an optional pack `views` map (exactly 240x420), falling back toward front; code-drawn Pip `side` and `back` keep rotation working without a private pack.
+- [x] Switch the sprite texture per pose `view` and swing `turn` through quarter/side and `spin` through quarter/side/back.
+- [x] Pin the new maps and fallbacks with contract, scaffold, and redraw tests; review every turn/spin key with both packs.
+- Manual: judge the turn and spin on the real desktop, at 30 and 60 fps, with private art and Pip.
+
+## Idle variety and partial-body peeks (2026-11-10)
+- [x] Review exposure sheets, the rig shader, clip scheduling and peek placement for stiffness and repetition.
+- [x] Ease the standing float (slow-in, slow-out, just over two seconds) and add `standHip`, `standLoose` and `sitLean` cycles she settles into by herself.
+- [x] Add `wave`, `shrug`, `think`, `sway`, `scout`, `bounce` and seated `legswing`; pick flourishes and peeks without repeating recent ones (`core/motion/variety.ts`).
+- [x] Rest 3.5-12 s between idle clips instead of a fixed 5 s; ease clip weight in and out; make idle breathing and weight shift non-periodic.
+- [x] Add partial-body appearances (`core/motion/peek.ts`): half of her leaning out from a side edge, and head and shoulders over the floor line, with an overshoot on the way in.
+- [x] Pin the new decisions with property tests and the new sheets with scaffold tests; add showcase entries.
+- [x] Fix frog-legged crouches: knees bend toward the viewer (thigh and shin foreshorten) with a slight outward turn, feet planted exactly (`core/motion/legs.ts`, `uLegL/R`).
+- Manual: judge the new cycles, flourishes and peeks on the real desktop, at 30 and 60 fps, with private art and Pip.
+
+## Expressive face art (2026-11-10)
+- [x] Add an optional pack `expressions` map and paint the current expression into the sprite texture, so her face changes on the full body.
+- [x] Decide blinks, moods, glances and act faces in a pure state machine (`core/motion/expression.ts`) with property tests.
+- [x] Draw 13 original expression patches and 5 cut-in close-ups for the private pack (code-drawn, `art/private/faces-build.html`); declare `faceAnchor`, `expressions` and `cutins`. Cut-ins now play during victory, alarm, zap and pointing.
+- Pip has no expressions yet, and the legacy panel portraits (`faces`) are not drawn.
+- Manual: judge blink rhythm, moods and act faces on the real desktop at 30 and 60 fps.
+
 ## Later
 
 - [ ] Connect to T3Code on the VPS over Tailscale.

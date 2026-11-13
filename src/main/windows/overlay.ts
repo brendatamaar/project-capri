@@ -9,7 +9,7 @@ import { readSettings, writeSettings } from '../stores/companion-settings';
 import { watchWindows } from './watch';
 import type { ArtDescriptor } from '../../shared/art';
 
-export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard?:()=>void,openAssistant?:()=>void) {
+export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard?:()=>void,openAssistant?:()=>void,openShowcase?:()=>void) {
   const funListeners=new Set<(value:ReturnType<typeof overlayFun.parse>)=>void>();
   const listeners=new Set<()=>void>();
   let state: State = initialCompanion(await readSettings(app.getPath('userData')));
@@ -37,6 +37,7 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard
       { label: 'Capri Companion', enabled: false },
       ...(openBoard?[{label:'Agent board',click:()=>openBoard()}]:[]),
       ...(openAssistant?[{label:'Assistant',click:()=>openAssistant()}]:[]),
+      ...(openShowcase?[{label:'Showcase gallery...',click:()=>openShowcase()}]:[]),
       {label:`Art: ${art.name} (${art.source})`,enabled:false},
       ...(watcherFailed ? [{ label: 'Window tracking unavailable; restart to retry', enabled: false }] : []),
       ...(storeFailed ? [{ label: 'Settings could not be saved', enabled: false }] : []),
@@ -47,6 +48,7 @@ export async function createCompanion(smoke: boolean,art:ArtDescriptor,openBoard
       { label: 'Motion', submenu: (['auto', 'full', 'reduced'] as const).map(motion => ({ label: motion, type: 'radio', checked: settings.motion === motion, click: () => dispatch({ tag: 'SettingsChanged', patch: { motion } }) })) },
       { label: 'Frame rate', submenu: ([30,60] as const).map(fps => ({ label: `${fps} fps`, type: 'radio', checked: settings.fps === fps, click: () => dispatch({ tag: 'SettingsChanged', patch: { fps } }) })) },
       {label:'Behaviors',submenu:([['wander','Wander'],['drag','Drag and throw'],['peek','Edge peeking'],['pet','Head pats'],['zap','Pointer zap (visual only)'],['satellite','Satellite'],['pcReactions','React to PC'],['possess','Window possession (visual only)'],['follow','Follow across monitors']] as const).map(([key,label])=>({label,type:'checkbox',checked:settings[key],click:()=>dispatch({tag:'SettingsChanged',patch:{[key]:!settings[key]}})}))},
+      {label:'Antics',type:'checkbox',checked:settings.antics,click:()=>dispatch({tag:'SettingsChanged',patch:{antics:!settings.antics}})},
       {label:'Fun extras (opt-in)',submenu:([['bond','Bond progress'],['jealousy','Playful jealousy'],['checkins','Check-ins'],['cursorRide','Ride cursor'],['miniPlayer','Music mini player'],['dance','Dance with music'],['clones','Visual clones'],['chaos','Theatrical chaos']] as const).map(([key,label])=>({label,type:'checkbox',checked:settings[key],click:()=>dispatch({tag:'SettingsChanged',patch:{[key]:!settings[key]}})}))},
       {label:'Rest',submenu:(['corner','taskbar','floor'] as const).map(rest=>({label:rest,type:'radio',checked:settings.rest===rest,click:()=>dispatch({tag:'SettingsChanged',patch:{rest}})}))},
       {label:'Art pack (restart to apply)',submenu:(['auto','installed','development','placeholder'] as const).map(artPack=>({label:artPack,type:'radio',checked:settings.artPack===artPack,click:()=>dispatch({tag:'SettingsChanged',patch:{artPack}})}))},

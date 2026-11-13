@@ -2,15 +2,22 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { isArtPath } from '../core/art-policy';
-import type { ArtDescriptor, ArtSource } from '../shared/art';
+import { EXPRESSION_NAMES, POSE_NAMES, PROP_NAMES, VIEW_NAMES, type ArtDescriptor, type ArtSource } from '../shared/art';
 
 const imagePath = z.string().refine(isArtPath, 'Expected a safe, relative raster image path');
 const assets = z.record(z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/), imagePath)
   .refine(value => Object.keys(value).length <= 32).default({});
+// Unlike the open maps above, a prop key names a fixed slot in the atlas.
+const props = z.record(z.string().refine(key => (PROP_NAMES as readonly string[]).includes(key), 'Unknown prop name'), imagePath).default({});
+// A rotation view reuses the front sprite's rig and arm, so it must match its exact grid.
+const views = z.record(z.string().refine(key => (VIEW_NAMES as readonly string[]).includes(key), 'Unknown view name'), imagePath).default({});
+const poses = z.record(z.string().refine(key => (POSE_NAMES as readonly string[]).includes(key), 'Unknown pose name'), imagePath).default({});
+// Her face on the body sprite. Like props, each key names a fixed slot.
+const expressions = z.record(z.string().refine(key => (EXPRESSION_NAMES as readonly string[]).includes(key), 'Unknown expression name'), imagePath).default({});
 const schema = z.object({
   name: z.string().trim().min(1).max(80), version: z.literal(1), rig: z.literal('mochi-v1'),
   // The required sprite uses Electron's portable native PNG/JPEG decoder.
-  sprite: imagePath.refine(value => /\.(png|jpe?g)$/i.test(value)), faces: assets, cutins: assets, intro: assets,
+  sprite: imagePath.refine(value => /\.(png|jpe?g)$/i.test(value)), faces: assets, cutins: assets, intro: assets, props, views, poses, expressions,
   faceAnchor: z.object({ x: z.number().min(0).max(240), y: z.number().min(0).max(420), width: z.number().positive().max(120), height: z.number().positive().max(120), background: z.string().regex(/^#[a-fA-F0-9]{6}$/).default('#1a3139') }).strict()
     .refine(anchor => anchor.x+anchor.width<=240 && anchor.y+anchor.height<=420).optional(),
 }).strict();
@@ -63,10 +70,31 @@ export async function loadArtPack(roots: Record<ArtSource, string>, imageSize: I
         }
         return Object.fromEntries(entries);
       };
+      // Rotation views share the front sprite's deformation grid, so a view that is not
+      // exactly 240x420 is omitted and the renderer falls back toward the front sprite.
+      const fittedViews = async (map: Record<string, string>) => {
+        const entries: [string, string][] = [];
+        for (const [key, relative] of Object.entries(map)) {
+          try {
+            const bytes = await readWithin(root, relative, MAX_IMAGE);
+            const dimensions = imageSize(bytes);
+            if (!dimensions || dimensions.width !== 240 || dimensions.height !== 420) continue;
+            files.add(relative);
+            entries.push([key, `art://pack/${relative}`]);
+          } catch { /* Missing, corrupt, or escaping view: fall back without it. */ }
+        }
+        return Object.fromEntries(entries);
+      };
+      // Expressions are drawn over the faceAnchor, and every other one falls back to neutral:
+      // without both there is nothing to show, and the face stays as drawn on the sprite.
+      const faces = manifest.faceAnchor ? await optional(manifest.expressions) : {};
       return { root, files, descriptor: {
         name: manifest.name, version: 1, rig: 'mochi-v1', source,
         sprite: `art://pack/${manifest.sprite}`,
-        faces: await optional(manifest.faces), cutins: await optional(manifest.cutins), intro: await optional(manifest.intro),
+        faces: await optional(manifest.faces), cutins: await optional(manifest.cutins), intro: await optional(manifest.intro), props: await optional(manifest.props),
+        views: await fittedViews(manifest.views),
+        poses: await fittedViews(manifest.poses),
+        expressions: 'neutral' in faces ? faces : {},
         ...(manifest.faceAnchor ? { faceAnchor: manifest.faceAnchor } : {}),
       } };
     } catch { /* Invalid candidate: try the next source without logging private paths. */ }
